@@ -1,0 +1,40 @@
+{
+  "dataset": "MOF CO2 capture (synthetic)",
+  "optimum": 15.465570204158334,
+  "agent": "heuristic",
+  "batch_size": 1,
+  "checkpoints": [
+    "@5",
+    "@10"
+  ],
+  "methods": {
+    "random": {
+      "final_best_mean": 14.247581650663982,
+      "final_best_std": 0.37581496576842555,
+      "pct_of_optimum_final": 92.12451569896295,
+      "@5": 13.570265017298604,
+      "@10": 14.247581650663982
+    },
+    "classic_bo": {
+      "final_best_mean": 14.36571312797634,
+      "final_best_std": 0.6418233158061389,
+      "pct_of_optimum_final": 92.88835095206339,
+      "@5": 13.028811181805047,
+      "@10": 14.36571312797634
+    },
+    "agentic_bo": {
+      "final_best_mean": 14.528000547333578,
+      "final_best_std": 0.6632371683446054,
+      "pct_of_optimum_final": 93.93769745021969,
+      "@5": 12.9632937979276,
+      "@10": 14.060361901863354
+    },
+    "agentic_no_surrogate": {
+      "final_best_mean": 13.440420526789126,
+      "final_best_std": 0.7119929547704008,
+      "pct_of_optimum_final": 86.90543154480852,
+      "@5": 12.553151631967003,
+      "@10": 13.440420526789126
+    }
+  }
+}

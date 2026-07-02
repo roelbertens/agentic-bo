@@ -1,0 +1,39 @@
+{
+  "dataset": "Buchwald-Hartwig per-substrate (avg over 4)",
+  "optimum": 100.0,
+  "agent": "gemini:gemini-2.5-flash",
+  "checkpoints": [
+    5,
+    10
+  ],
+  "methods": {
+    "random": {
+      "pct_of_optimum_final": 87.51611182200601,
+      "final_best_mean": 87.51611182200601,
+      "final_best_std": 11.159902294584713,
+      "pct_of_optimum_at_5": 82.41305012154048,
+      "pct_of_optimum_at_10": 86.88914613274972
+    },
+    "classic_bo": {
+      "pct_of_optimum_final": 92.65814511436973,
+      "final_best_mean": 92.65814511436973,
+      "final_best_std": 8.557344327074786,
+      "pct_of_optimum_at_5": 82.11265173793736,
+      "pct_of_optimum_at_10": 91.6113867745948
+    },
+    "agentic_bo": {
+      "pct_of_optimum_final": 86.92555259093207,
+      "final_best_mean": 86.92555259093207,
+      "final_best_std": 13.661669803450245,
+      "pct_of_optimum_at_5": 84.29496409219354,
+      "pct_of_optimum_at_10": 86.14430282372967
+    },
+    "agentic_no_surrogate": {
+      "pct_of_optimum_final": 92.82659146857958,
+      "final_best_mean": 92.82659146857958,
+      "final_best_std": 10.535182966144516,
+      "pct_of_optimum_at_5": 83.54259166434757,
+      "pct_of_optimum_at_10": 92.73785055043858
+    }
+  }
+}

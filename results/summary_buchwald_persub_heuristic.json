@@ -1,0 +1,39 @@
+{
+  "dataset": "Buchwald-Hartwig per-substrate (avg over 4)",
+  "optimum": 100.0,
+  "agent": "heuristic",
+  "checkpoints": [
+    5,
+    10
+  ],
+  "methods": {
+    "random": {
+      "pct_of_optimum_final": 86.02673174119518,
+      "final_best_mean": 86.02673174119518,
+      "final_best_std": 15.126229242165667,
+      "pct_of_optimum_at_5": 81.22869585767418,
+      "pct_of_optimum_at_10": 85.37993099803342
+    },
+    "classic_bo": {
+      "pct_of_optimum_final": 93.21772589993952,
+      "final_best_mean": 93.21772589993952,
+      "final_best_std": 8.32257308016587,
+      "pct_of_optimum_at_5": 83.4367607791884,
+      "pct_of_optimum_at_10": 92.43265714510835
+    },
+    "agentic_bo": {
+      "pct_of_optimum_final": 91.47921809653317,
+      "final_best_mean": 91.47921809653317,
+      "final_best_std": 10.315535685763416,
+      "pct_of_optimum_at_5": 85.20533496779734,
+      "pct_of_optimum_at_10": 90.93172150234308
+    },
+    "agentic_no_surrogate": {
+      "pct_of_optimum_final": 93.74718931559964,
+      "final_best_mean": 93.74718931559964,
+      "final_best_std": 8.863188874847518,
+      "pct_of_optimum_at_5": 84.87474430638262,
+      "pct_of_optimum_at_10": 92.14629858158646
+    }
+  }
+}

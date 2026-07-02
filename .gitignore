@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+.pytest_cache/
+.DS_Store
+*.egg-info/
+# Third-party datasets — fetch with scripts/get_data.py rather than redistribute
+data/*.xlsx
+data/direct_arylation/
+# Persistent LLM decision cache (local resume state)
+.cache/

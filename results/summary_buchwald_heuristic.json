@@ -1,0 +1,40 @@
+{
+  "dataset": "Buchwald-Hartwig C-N coupling (Ahneman 2018)",
+  "optimum": 99.99999,
+  "agent": "heuristic",
+  "batch_size": 1,
+  "checkpoints": [
+    "@5",
+    "@10"
+  ],
+  "methods": {
+    "random": {
+      "final_best_mean": 84.56010051999999,
+      "final_best_std": 5.0451822697502315,
+      "pct_of_optimum_final": 84.5601089760109,
+      "@5": 81.96582286875,
+      "@10": 83.71008366875
+    },
+    "classic_bo": {
+      "final_best_mean": 92.63434323499999,
+      "final_best_std": 8.627887152541867,
+      "pct_of_optimum_final": 92.63435249843525,
+      "@5": 81.276374775,
+      "@10": 86.9814491525
+    },
+    "agentic_bo": {
+      "final_best_mean": 93.2513116325,
+      "final_best_std": 8.657948249140576,
+      "pct_of_optimum_final": 93.2513209576321,
+      "@5": 82.3105406275,
+      "@10": 88.95455360125
+    },
+    "agentic_no_surrogate": {
+      "final_best_mean": 87.73856479125,
+      "final_best_std": 8.47568588632254,
+      "pct_of_optimum_final": 87.73857356510734,
+      "@5": 85.03752989875,
+      "@10": 86.88028258625
+    }
+  }
+}

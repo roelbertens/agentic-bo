@@ -1,0 +1,209 @@
+# Agentic Bayesian Optimisation for Scientific Discovery
+
+A compact, reproducible study of an **agentic Bayesian-optimisation (BO) loop**: an LLM
+agent that decides which experiment to run next, benchmarked against classic BO across a
+synthetic materials task and two **real reaction-optimisation datasets**. On the hard one it
+reproduces a published LLM-BO result — see the [headline result](#headline-result--direct-arylation-hard-task-reasoning-bo-protocol)
+and the honest write-up in [LEARNINGS.md](LEARNINGS.md).
+
+Four policies compete on the same task, using as few (simulated) experiments as possible:
+
+| Policy | What it does |
+| --- | --- |
+| **Random search** | Naive floor — pick the next candidate at random. |
+| **Classic BO** *(baseline)* | Gaussian-process surrogate + Expected Improvement; batches via local penalization (a fair stand-in for qLogEI). |
+| **Agentic BO** | An **agent** (Gemini / Claude, or a heuristic stand-in) chooses the next experiment from a surrogate-informed shortlist, reasoning about explore/exploit each round. |
+| **Agentic BO – no surrogate** *(ablation)* | The same agent, but **without** the GP's mean/std/EI — isolates how much the surrogate contributes vs. the agent's own knowledge. |
+
+The point is not a new method. It is an honest, small-scale answer to a practical question —
+*does putting an LLM in the BO loop actually help, and when?* — with the evaluation hygiene
+(fair baseline, ablation, multi-seed spread) needed to trust the answer.
+
+## Three datasets — increasing in how much an agent can help
+
+**`mof`** *(synthetic, default)* — CO₂ working capacity of metal-organic frameworks as a
+smooth function of five physical descriptors. Classic GP+EI is already near-optimal on a
+landscape this smooth, so an agent has little to add. Useful as a sanity check and a floor.
+
+**`buchwald`** *(real, easy)* — the Buchwald-Hartwig HTE dataset of Ahneman et al.
+(*Science* 2018; often called the Dreher-Doyle dataset): a complete grid of **3,955**
+Pd-catalysed C-N cross-couplings
+(4 ligands × 3 bases × 22 additives × 15 aryl halides) with measured yields. Discrete and
+built of **named building blocks** (XPhos, P2Et, …) — but good conditions are *dense*
+(~7% of the pool yields ≥80%), so even random reaches ~85% of the optimum and every method
+saturates. A useful "is the agent at least competitive?" check.
+
+**`arylation`** *(real, hard)* — the Shields et al. direct C-H arylation dataset (*Nature*
+2021): a full-factorial pool of **1,728** reactions (12 ligands × 4 bases × 4 solvents × 3
+concentrations × 3 temperatures). Deceptive: **~32% of conditions give ~0% yield** and the
+median is ~8%, so a GP starts blind and cold-start prior knowledge (avoid dead
+ligand/base/solvent combinations) matters most. This is the regime where LLM-BO has been
+reported to clearly beat classic BO — e.g. Ramos et al. and Reasoning-BO (see
+[References](#references)).
+
+Because both datasets are finite with known ground truth, the pool optimum is exact and
+"% of optimum" needs no API to compute.
+
+### Three things that make the comparison *fair*
+
+Good reactions are dense enough that best-of-N saturates — even random reaches ~89% of the
+optimum, so the *final* metric barely separates methods. Getting a trustworthy comparison
+took three corrections (the full story is in [LEARNINGS.md](LEARNINGS.md)):
+
+- **IMP@k, not final.** With `--batch-size > 1` the summary reports **IMP@k** = the per-round
+  *proposal quality* (best yield in round k's batch, non-cumulative), the metric Reasoning-BO
+  (2025) uses. That is where cold-start prior knowledge shows up; the final saturates.
+- **A fair batch baseline.** Classic BO batches via **local penalization** (spread picks out),
+  not greedy top-q EI (near-duplicate picks that get stuck). The weak version let *random* beat
+  classic BO — a baseline artifact, not a real result.
+- **Multiple seeds.** 10 seeds; the gaps sit inside ±7–13, so single-run "leads" are treated
+  as noise until they survive the spread.
+
+(`--per-substrate` is also available for Buchwald: fix the aryl halide and optimise the 264
+ligand/base/additive combinations, averaged over substrates.)
+
+## Quick start
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Fast, fully offline — heuristic agent stands in for the LLM (no API key):
+python run.py                       # synthetic MOF task
+python scripts/get_data.py          # fetch the reaction dataset (~2 MB, once)
+python run.py --dataset buchwald    # real reaction task, heuristic baselines
+
+# The real agentic loop on the reaction task, with Gemini:
+export GEMINI_API_KEY=...
+python run.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
+
+# The fair "can the agent beat classic BO?" test — per-substrate + cold start:
+python run.py --dataset buchwald --per-substrate --substrates 4 \
+              --n-init 3 --budget 12 --agent gemini --seeds 3 --verbose
+
+# ...or with Claude (swap --agent claude and ANTHROPIC_API_KEY).
+
+# Reproducing Reasoning-BO's Direct Arylation protocol (batch 3, IMP@k metric):
+python run.py --dataset arylation --agent gemini \
+              --n-init 3 --budget 30 --batch-size 3 --seeds 10 --verbose
+```
+
+**Comparing to the literature.** With `--batch-size > 1` the summary reports **IMP@k**
+(the per-round *proposal quality* — the best yield among round k's batch, non-cumulative),
+matching the metric in Reasoning-BO (2025). As a validation, our random search reproduces
+their random baseline closely (IMP@1 ≈ 30 vs 29, including the non-monotonic dip). Note the
+final best-so-far converges high for every method (their Log-AUC column agrees) — the
+signal lives in the early IMP@k, not the final. Exact numeric parity is limited by their
+under-specified search space (likely continuous concentration/temperature vs our discrete
+1728-grid) and their qLogEI vs our local-penalization batch, so compare *patterns*, not decimals.
+
+Outputs land in `results/`: `convergence_<dataset>_<agent>.png` and a `summary_*.json`.
+Run the tests with `pytest -q`.
+
+## Headline result — direct arylation (hard task), Reasoning-BO protocol
+
+Gemini 2.5 Flash agent, paper protocol (n_init 3, batch 3, 30 experiments, 10 seeds), with
+`classic_bo` on a fair local-penalization batch. **IMP@k** = per-round proposal quality
+(matches Reasoning-BO); `final` = best-so-far as % of the pool optimum:
+
+![convergence](results/convergence_arylation_gemini.png)
+
+| method | IMP@1 | IMP@3 | IMP@5 | final |
+| --- | --- | --- | --- | --- |
+| random | 30.4 | 25.3 | 48.7 | 89% |
+| classic BO (GP + EI, LP batch) | 36.2 | 61.6 | 70.0 | 87% |
+| **agentic BO** (Gemini + surrogate) | 41.9 | 67.0 | **71.7** | **96%** |
+| agentic BO, no surrogate | **53.0** | 47.3 | 47.2 | 92% |
+| *paper — Vanilla BO* | 43.6 | 45.2 | 55.9 | — |
+| *paper — Reasoning-BO* | 60.1 | 66.6 | 71.2 | — |
+
+Read honestly (full arc in [LEARNINGS.md](LEARNINGS.md)):
+
+- **Cold start (IMP@1) — real agent win.** Chemistry-only (no surrogate) scores 53 vs BO's 36:
+  it picks good ligand/base/solvent conditions from round one, which a GP-from-scratch cannot.
+- **Final — real agent win.** 96% vs 87%: classic BO over-exploits and caps out on this
+  deceptive landscape (32% of conditions are dead); the agent escapes the trap.
+- **Mid-trajectory (IMP@5) — a tie** against the *fair* baseline (71.7 vs 70.0). Against a weak
+  greedy-EI batch the agent looked far ahead; most of that gap was the baseline. Scrutinising
+  the random result exposed it.
+
+On the **easy** `buchwald` task the opposite holds — the surrogate *hurts* the LLM, because
+greedy EI is already near-optimal and the agent only adds noise. **Whether an LLM helps BO is
+dataset-dependent**; benchmark on the regime that matches your problem.
+
+## How the agentic loop works
+
+Each round the agentic policy:
+
+1. Fits the GP surrogate on everything measured so far.
+2. Builds a **shortlist** — mostly top-Expected-Improvement candidates plus a couple of
+   high-uncertainty ones, so exploration is always an option.
+3. Hands the agent the run history + each candidate (as chemistry, with a reagent legend)
+   and, when available, the surrogate's mean ± std and EI.
+4. The LLM returns a **structured decision** (`picks`, `strategy`, `rationale`) via
+   the provider's JSON-schema / structured-output mode; the measured value is fed back and
+   the loop repeats.
+
+Agent backends are pluggable (`src/agentic_bo/agent.py`), all behind one `select_batch`
+interface: `HeuristicAgent` (deterministic, runs anywhere), `GeminiAgent` (`google-genai`,
+default `gemini-2.5-flash`), `AnthropicAgent` (`anthropic`, default `claude-opus-4-8`).
+Set `--model` to override; each round the agent returns a ranked batch of `--batch-size` picks.
+
+## Layout
+
+```
+run.py                     CLI: run the benchmark, write plot + summary
+scripts/get_data.py        download the reaction datasets (Buchwald + arylation)
+src/agentic_bo/
+  data.py                  dataset-agnostic container (features, objective, descriptions)
+  objective.py             synthetic MOF pool + ground-truth objective
+  reactions.py             real loaders: Buchwald-Hartwig + direct arylation (named reagents)
+  surrogate.py             GP surrogate + Expected Improvement
+  agent.py                 decision context + Heuristic / Gemini / Claude backends
+  policies.py              random, classic BO (local-penalization batch), agentic BO (+ ablation)
+  experiment.py            multi-seed runs, convergence curves + per-round IMP@k
+  plotting.py              convergence + regret figures
+  cache.py                 persistent prompt->decision cache (free resume)
+tests/test_smoke.py        end-to-end checks (offline)
+LEARNINGS.md               what the experiments actually taught us
+```
+
+## Notes
+
+- `--agent gemini/claude` makes one API call per round per seed (a round proposes
+  `--batch-size` candidates). Decisions are cached to `.cache/`, so an interrupted run
+  resumes for free and re-analysis (new baseline, new plot) costs no API calls.
+- The reaction datasets are downloaded, not committed (see `.gitignore`); rerun
+  `scripts/get_data.py` on a fresh clone.
+- See **[LEARNINGS.md](LEARNINGS.md)** for the honest write-up: metric choice, dataset-
+  dependence of the agent's value, reproducing Reasoning-BO, and baseline fairness.
+
+## References
+
+Datasets (downloaded by `scripts/get_data.py`, not redistributed here):
+
+- Ahneman, D. T., Estrada, J. G., Wang, S., Dreher, S. D. & Doyle, A. G.
+  *Predicting reaction performance in C-N cross-coupling using machine learning.*
+  Science 360, 186-190 (2018). [doi:10.1126/science.aar5169](https://doi.org/10.1126/science.aar5169).
+  File obtained from [rxn4chemistry/rxn_yields](https://github.com/rxn4chemistry/rxn_yields) (MIT).
+- Shields, B. J. et al. *Bayesian reaction optimization as a tool for chemical synthesis.*
+  Nature 590, 89-96 (2021). [doi:10.1038/s41586-021-03213-y](https://doi.org/10.1038/s41586-021-03213-y).
+  Files obtained from [b-shields/edbo](https://github.com/b-shields/edbo) (MIT).
+
+Methods compared against / built on:
+
+- *Reasoning BO: Enhancing Bayesian Optimization with Long-Context Reasoning Power of LLMs.*
+  [arXiv:2505.12833](https://arxiv.org/abs/2505.12833) (2025) — the IMP@k metric and the
+  direct-arylation protocol reproduced here.
+- Ramos, M. C. et al. *Bayesian Optimization of Catalysis with In-Context Learning.*
+  ACS Cent. Sci. (2026). [doi:10.1021/acscentsci.5c02418](https://doi.org/10.1021/acscentsci.5c02418)
+  ([arXiv:2304.05341](https://arxiv.org/abs/2304.05341)).
+- González, J., Dai, Z., Hennig, P. & Lawrence, N. *Batch Bayesian Optimization via Local
+  Penalization.* AISTATS (2016). [arXiv:1505.08052](https://arxiv.org/abs/1505.08052) —
+  the batching used by the classic-BO baseline.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The license covers the code in this repository only; the
+reaction datasets belong to their original authors (cited above) and are fetched from
+their public sources rather than redistributed.
