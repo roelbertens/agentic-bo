@@ -172,3 +172,15 @@ Extensions:
    already hints at.
 10. **Cost accounting.** Report API cost and wall-clock next to the yield numbers;
     "+9pp final best for cents of API calls" is the decision-relevant form of the result.
+11. **Make the agent actually agentic.** Today the "agent" is one stateless, structured LLM
+    call per round — the harness does the interesting work (fits the GP, computes EI, builds
+    the shortlist) and the LLM only ranks ~8 pre-digested options. "LLM-guided BO" is the
+    honest label. The agentic upgrades, in rough order of expected value:
+    - **Tool use:** let the model query the surrogate itself ("predict these 5 points"),
+      request more candidates, or compute — instead of receiving a fixed shortlist.
+    - **Control over the loop:** let it choose batch size q, stop early, or tune the
+      explore/exploit mix of the shortlist.
+    - **Persistent memory:** a scratchpad carried across rounds ("aryl halide X consistently
+      underperforms") instead of re-reading raw history each round.
+    - **Multi-step deliberation:** hypothesise → verify against the surrogate → pick,
+      rather than one shot.
