@@ -64,27 +64,29 @@ ligand/base/additive combinations, averaged over substrates.)
 
 ## Quick start
 
+Uses [uv](https://docs.astral.sh/uv/); no uv? `pip install -e ".[gemini]"` works too
+(then drop the `uv run` prefix).
+
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                             # offline runs; add --extra gemini for the LLM agent
 
 # Fast, fully offline — heuristic agent stands in for the LLM (no API key):
-python run.py                       # synthetic MOF task
-python scripts/get_data.py          # fetch the reaction dataset (~2 MB, once)
-python run.py --dataset buchwald    # real reaction task, heuristic baselines
+uv run run.py                       # synthetic MOF task
+uv run scripts/get_data.py          # fetch the reaction datasets (~2 MB, once)
+uv run run.py --dataset buchwald    # real reaction task, heuristic baselines
 
 # The real agentic loop on the reaction task, with Gemini:
 export GEMINI_API_KEY=...
-python run.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
+uv run run.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
 
 # The fair "can the agent beat classic BO?" test — per-substrate + cold start:
-python run.py --dataset buchwald --per-substrate --substrates 4 \
+uv run run.py --dataset buchwald --per-substrate --substrates 4 \
               --n-init 3 --budget 12 --agent gemini --seeds 3 --verbose
 
-# ...or with Claude (swap --agent claude and ANTHROPIC_API_KEY).
+# ...or with Claude (--extra claude, --agent claude, ANTHROPIC_API_KEY).
 
 # Reproducing Reasoning-BO's Direct Arylation protocol (batch 3, IMP@k metric):
-python run.py --dataset arylation --agent gemini \
+uv run run.py --dataset arylation --agent gemini \
               --n-init 3 --budget 30 --batch-size 3 --seeds 10 --verbose
 ```
 
@@ -98,7 +100,7 @@ under-specified search space (likely continuous concentration/temperature vs our
 1728-grid) and their qLogEI vs our local-penalization batch, so compare *patterns*, not decimals.
 
 Outputs land in `results/`: `convergence_<dataset>_<agent>.png` and a `summary_*.json`.
-Run the tests with `pytest -q`.
+Run the tests with `uv run pytest -q`.
 
 ## Headline result — direct arylation (hard task), Reasoning-BO protocol
 
