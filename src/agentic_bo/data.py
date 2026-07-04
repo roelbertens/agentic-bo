@@ -8,7 +8,7 @@ reaction-optimisation dataset.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -21,6 +21,7 @@ class Dataset:
     objective_label: str          # e.g. "CO2 working capacity (mol/kg)"
     title: str = "dataset"        # short name for plot titles
     legend: str = ""              # optional shared context block for the LLM prompt
+    y_true: np.ndarray | None = None  # original objective when y has been permuted (leakage check)
 
     @property
     def n(self) -> int:
@@ -33,3 +34,16 @@ class Dataset:
     @property
     def best_value(self) -> float:
         return float(self.y.max())
+
+
+def permute_yields(dataset: Dataset, seed: int = 0) -> Dataset:
+    """Return a copy with the objective values shuffled across candidates.
+
+    Descriptions and features stay put, so any chemistry knowledge the agent
+    brings no longer maps to the observed objective. The original values are
+    kept in ``y_true`` so an audit can test whether the agent keeps chasing
+    the *original* optimum — evidence of dataset memorisation, not reasoning.
+    """
+    rng = np.random.default_rng(seed)
+    return replace(dataset, y=dataset.y[rng.permutation(dataset.n)], y_true=dataset.y,
+                   title=dataset.title + " [yields permuted]")

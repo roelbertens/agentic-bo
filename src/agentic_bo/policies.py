@@ -88,7 +88,40 @@ class AgenticBO:
             X_cand=dataset.X[cand_ids], mean=mean, std=std, ei=ei,
             use_surrogate=self.use_surrogate, n_select=min(q, len(cand_ids)),
         )
-        return [cand_ids[p] for p in self.agent.select_batch(ctx)]
+        positions = self.agent.select_batch(ctx)
+        self._log_decision(dataset, seed, ctx, positions)
+        return [cand_ids[p] for p in positions]
+
+    def _log_decision(self, dataset, seed, ctx, positions):
+        """Append an audit record of this decision to the (shared) agent's decision_log.
+
+        Records the full shortlist with ground truth alongside the agent's stated
+        strategy/rationale, so scripts/audit_decisions.py can check the reasoning
+        against reality after the run — no API calls needed.
+        """
+        log = getattr(self.agent, "decision_log", None)
+        if log is None:
+            log = self.agent.decision_log = []
+        shortlist = []
+        for pos, gid in enumerate(ctx.cand_ids):
+            entry = {"id": int(gid), "desc": ctx.cand_desc[pos], "y": float(dataset.y[gid])}
+            if dataset.y_true is not None:
+                entry["y_true"] = float(dataset.y_true[gid])
+            if ctx.mean is not None:
+                entry.update(mean=float(ctx.mean[pos]), std=float(ctx.std[pos]),
+                             ei=float(ctx.ei[pos]))
+            shortlist.append(entry)
+        dec = getattr(self.agent, "last_decision", None) or {}
+        log.append({
+            "dataset": dataset.title, "policy": self.name, "seed": int(seed),
+            "round": int(ctx.iteration), "n_rounds": int(ctx.budget),
+            "best_so_far": ctx.best_value, "n_select": int(ctx.n_select),
+            "strategy": dec.get("strategy"), "rationale": dec.get("rationale"),
+            "fallback": bool(dec.get("fallback", False)),
+            "cache_hit": bool(dec.get("cache_hit", False)),
+            "picked_pos": [int(p) for p in positions],
+            "shortlist": shortlist,
+        })
 
 
 def _length_scale(Xc, rng, sample: int = 200) -> float:

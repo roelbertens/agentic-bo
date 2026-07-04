@@ -29,6 +29,7 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from agentic_bo import objective, plotting, reactions
+from agentic_bo.data import permute_yields
 from agentic_bo.experiment import run_method, run_method_per_substrate
 from agentic_bo.policies import AgenticBO, ClassicBO, RandomPolicy
 
@@ -58,14 +59,16 @@ def load_dataset(args):
     if args.dataset == "mof":
         return objective.sample_pool(n=args.pool_size, seed=args.pool_seed)
     if args.dataset == "buchwald":
-        return reactions.load_buchwald_hartwig(subsample=args.subsample, seed=args.pool_seed)
+        return reactions.load_buchwald_hartwig(subsample=args.subsample, seed=args.pool_seed,
+                                               anonymize=args.anonymize)
     if args.dataset == "arylation":
-        return reactions.load_direct_arylation()
+        return reactions.load_direct_arylation(anonymize=args.anonymize)
     raise ValueError(args.dataset)
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dataset", choices=["mof", "buchwald", "arylation"], default="mof",
                    help="mof = smooth synthetic; buchwald = easy real reaction pool; "
                         "arylation = harder, deceptive real reaction pool")
@@ -76,18 +79,29 @@ def main() -> None:
     p.add_argument("--seeds", type=int, default=8, help="number of random seeds (default 8)")
     p.add_argument("--pool-size", type=int, default=600, help="candidate pool size (mof only)")
     p.add_argument("--pool-seed", type=int, default=0, help="seed for the (fixed) candidate pool")
-    p.add_argument("--subsample", type=int, default=None, help="subsample the buchwald pool (optional)")
+    p.add_argument("--subsample", type=int, default=None,
+                   help="subsample the buchwald pool (optional)")
     p.add_argument("--per-substrate", action="store_true",
-                   help="buchwald: fix the aryl halide and optimise 4x3x22, averaged over substrates")
+                   help="buchwald: fix the aryl halide and optimise 4x3x22, "
+                        "averaged over substrates")
     p.add_argument("--substrates", type=int, default=4,
                    help="how many substrates to average over in --per-substrate mode")
+    p.add_argument("--anonymize", action="store_true",
+                   help="name ablation (credibility check): withhold reagent names/SMILES from "
+                        "the agent prompt (reaction datasets only). If the cold-start edge "
+                        "disappears, it came from named chemistry knowledge")
+    p.add_argument("--permute-yields", action="store_true",
+                   help="leakage check: shuffle the yields across candidates (seeded by "
+                        "--pool-seed). Chemistry knowledge can no longer help, so the agent "
+                        "should drop to random; audit the decision log for memorisation")
     p.add_argument("--agent", choices=["heuristic", "gemini", "claude"], default="heuristic",
                    help="backend for the agentic policy (default: heuristic, needs no API key)")
     p.add_argument("--model", default=None, help="LLM model id (defaults per agent)")
     p.add_argument("--methods", nargs="+", default=ALL_METHODS, choices=ALL_METHODS)
     p.add_argument("--out", default="results", help="output directory")
     p.add_argument("--no-cache", action="store_true",
-                   help="disable the persistent decision cache (LLM agents resume for free by default)")
+                   help="disable the persistent decision cache "
+                        "(LLM agents resume for free by default)")
     p.add_argument("--verbose", action="store_true", help="print each agent decision's rationale")
     args = p.parse_args()
 
@@ -97,12 +111,18 @@ def main() -> None:
     per_sub = args.per_substrate
     if per_sub and args.dataset != "buchwald":
         p.error("--per-substrate only applies to --dataset buchwald")
+    if args.anonymize and args.dataset == "mof":
+        p.error("--anonymize only applies to the reaction datasets (buchwald / arylation)")
 
     n_agentic = sum(m.startswith("agentic") for m in args.methods)
     import math
     rounds = math.ceil(args.budget / args.batch_size)
     if per_sub:
-        substrate_sets = reactions.load_buchwald_by_substrate(limit=args.substrates)
+        substrate_sets = reactions.load_buchwald_by_substrate(limit=args.substrates,
+                                                              anonymize=args.anonymize)
+        if args.permute_yields:
+            substrate_sets = [permute_yields(d, seed=args.pool_seed + i)
+                              for i, d in enumerate(substrate_sets)]
         plot_title = f"Buchwald-Hartwig per-substrate (avg over {len(substrate_sets)})"
         plot_objective = "% of substrate optimum"
         pool_desc = f"{len(substrate_sets)} substrates x {substrate_sets[0].n} candidates"
@@ -110,6 +130,8 @@ def main() -> None:
         n_decisions = len(substrate_sets) * args.seeds * rounds * n_agentic
     else:
         dataset = load_dataset(args)
+        if args.permute_yields:
+            dataset = permute_yields(dataset, seed=args.pool_seed)
         plot_title = dataset.title
         plot_objective = dataset.objective_label
         pool_desc = f"{dataset.n} candidates | global optimum = {dataset.best_value:.2f}"
@@ -119,7 +141,8 @@ def main() -> None:
     print(f"Dataset: {plot_title}")
     print(f"Pool: {pool_desc}")
     print(f"Budget: {args.n_init} init + {args.budget} experiments "
-          f"(batch {args.batch_size} -> {rounds} rounds) | seeds: {args.seeds} | agent: {args.agent}")
+          f"(batch {args.batch_size} -> {rounds} rounds) | "
+          f"seeds: {args.seeds} | agent: {args.agent}")
     if args.agent != "heuristic" and n_decisions:
         print(f"Heads-up: up to ~{n_decisions} {args.agent} API calls this run.")
     print()
@@ -165,13 +188,15 @@ def main() -> None:
         fb = agent.fallbacks
         if fb:
             print(f"\n[!] {args.agent} agent fell back {fb}/{agent.calls} decisions "
-                  f"({100 * fb / agent.calls:.0f}%). Those picks are EI/heuristic, not the model.{cache_note}")
+                  f"({100 * fb / agent.calls:.0f}%). "
+                  f"Those picks are EI/heuristic, not the model.{cache_note}")
         else:
             print(f"\n[ok] {args.agent} agent made all {agent.calls} decisions "
                   f"(no fallbacks).{cache_note}")
 
     agent_label = args.agent if args.agent == "heuristic" else f"{args.agent}:{model}"
-    tag = f"{args.dataset}{'_persub' if per_sub else ''}_{args.agent}"
+    variant = f"{'_anon' if args.anonymize else ''}{'_permuted' if args.permute_yields else ''}"
+    tag = f"{args.dataset}{'_persub' if per_sub else ''}{variant}_{args.agent}"
     plot_path = os.path.join(args.out, f"convergence_{tag}.png")
     plotting.plot_convergence(results, agent_label, args.n_init, plot_path,
                               objective_label=plot_objective, title=plot_title)
@@ -220,6 +245,16 @@ def main() -> None:
         json.dump(summary, f, indent=2)
     print(f"\nSaved plot -> {plot_path}")
     print(f"Saved summary -> {os.path.join(args.out, f'summary_{tag}.json')}")
+
+    # Every agentic decision (shortlist + ground truth + the agent's stated strategy and
+    # rationale) is logged so the reasoning can be audited against reality afterwards.
+    if agent is not None and getattr(agent, "decision_log", None):
+        log_path = os.path.join(args.out, f"decisions_{tag}.jsonl")
+        with open(log_path, "w") as f:
+            for rec in agent.decision_log:
+                f.write(json.dumps(rec) + "\n")
+        print(f"Saved decision log -> {log_path}")
+        print(f"Audit it with: uv run scripts/audit_decisions.py {log_path}")
 
 
 if __name__ == "__main__":

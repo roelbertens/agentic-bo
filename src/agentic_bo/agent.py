@@ -110,15 +110,24 @@ class HeuristicAgent:
 
     name = "heuristic"
 
+    def __init__(self):
+        self.last_decision: dict | None = None  # same shape as the LLM agents' (for audits)
+
     def select_batch(self, ctx: DecisionContext) -> list:
         if ctx.use_surrogate and ctx.mean is not None and ctx.std is not None:
             # UCB-style: weight uncertainty more early on, exploit as the budget runs out.
             beta = max(0.1, 2.0 * ctx.remaining / max(1, ctx.budget))
             order = np.argsort(-(ctx.mean + beta * ctx.std))
+            strategy = "explore" if beta > 1.0 else "exploit"
+            rationale = f"UCB on the surrogate with beta={beta:.2f}"
         else:
             # No surrogate: rank by closeness to the best candidate seen so far.
             x_best = ctx.X_eval[int(np.argmax(ctx.y_eval))]
             order = np.argsort(np.linalg.norm(ctx.X_cand - x_best, axis=1))
+            strategy = "exploit"
+            rationale = "nearest in feature space to the best measured candidate"
+        self.last_decision = {"strategy": strategy, "rationale": rationale,
+                              "fallback": False, "cache_hit": False}
         return _take(order, ctx.n_select, len(ctx.cand_ids))
 
 
@@ -135,6 +144,7 @@ class _LLMAgent:
         self.calls = 0         # total decisions requested
         self.fallbacks = 0     # decisions that fell back (API/parse error)
         self.cache_hits = 0    # decisions served from the persistent cache
+        self.last_decision: dict | None = None  # strategy/rationale of the latest decision
 
     def _raw_decision(self, prompt: str) -> str:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -143,8 +153,9 @@ class _LLMAgent:
         self.calls += 1
         prompt = _build_prompt(ctx)
         picks = []
+        data, hit = {}, False
         try:
-            raw, hit = None, False
+            raw = None
             if self.cache is not None:
                 key = self.cache.key(self.name, self.model, prompt)
                 raw = self.cache.get(key)
@@ -164,13 +175,16 @@ class _LLMAgent:
             if not self._warned:
                 print(f"[warn] {self.name} agent falling back to EI/heuristic on error: {exc}")
                 self._warned = True
-        if len(picks) < ctx.n_select:  # top up from the fallback ranking if under-filled
+        fell_back = len(picks) < ctx.n_select
+        if fell_back:  # top up from the fallback ranking if under-filled
             self.fallbacks += 1
             for p in _fallback_order(ctx):
                 if p not in picks:
                     picks.append(p)
                 if len(picks) == ctx.n_select:
                     break
+        self.last_decision = {"strategy": data.get("strategy"), "rationale": data.get("rationale"),
+                              "fallback": fell_back, "cache_hit": hit}
         return picks
 
 
@@ -200,7 +214,8 @@ class GeminiAgent(_LLMAgent):
         from google import genai  # lazy import; only this backend needs it
 
         self._genai = genai
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key)
         self.model = model
 
     def _raw_decision(self, prompt: str) -> str:

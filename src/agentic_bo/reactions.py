@@ -46,7 +46,7 @@ _YIELD = "Output"
 # Keyed by the exact SMILES in the dataset; edit freely if you spot a mismatch.
 _KNOWN_NAMES = {
     # ligands (the four classic Buchwald dialkylphosphino-biaryls)
-    "CC(C)C(C=C(C(C)C)C=C1C(C)C)=C1C2=C(P([C@@]3(C[C@@H]4C5)C[C@H](C4)C[C@H]5C3)[C@]6(C7)C[C@@H](C[C@@H]7C8)C[C@@H]8C6)C(OC)=CC=C2OC": "AdBrettPhos",
+    "CC(C)C(C=C(C(C)C)C=C1C(C)C)=C1C2=C(P([C@@]3(C[C@@H]4C5)C[C@H](C4)C[C@H]5C3)[C@]6(C7)C[C@@H](C[C@@H]7C8)C[C@@H]8C6)C(OC)=CC=C2OC": "AdBrettPhos",  # noqa: E501
     "CC(C)C(C=C(C(C)C)C=C1C(C)C)=C1C2=C(P(C3CCCCC3)C4CCCCC4)C=CC=C2": "XPhos",
     "CC(C)C(C=C(C(C)C)C=C1C(C)C)=C1C2=C(P(C(C)(C)C)C(C)(C)C)C(OC)=CC=C2OC": "tBuBrettPhos",
     "CC(C)C(C=C(C(C)C)C=C1C(C)C)=C1C2=C(P(C(C)(C)C)C(C)(C)C)C=CC=C2": "tBuXPhos",
@@ -66,9 +66,13 @@ def _label(value: str) -> str:
     return f"{name}  [{value}]" if name else value
 
 
-def _encode(df, categories):
-    """One-hot encode the given categorical columns; return (X, descriptions, legend)."""
-    import numpy as np
+def _encode(df, categories, anonymize: bool = False):
+    """One-hot encode the given categorical columns; return (X, descriptions, legend).
+
+    With ``anonymize`` the legend lists only the opaque short ids (L1, B2, ...) and
+    withholds names/SMILES — the name-ablation probe: if the agent's edge comes from
+    named chemistry knowledge, it must disappear here.
+    """
 
     onehot_blocks, legend_lines, short_ids = [], [], {}
     for cat in categories:
@@ -77,11 +81,16 @@ def _encode(df, categories):
         block = np.zeros((len(df), len(values)))
         block[np.arange(len(df)), df[cat].map(index).to_numpy()] = 1.0
         onehot_blocks.append(block)
-        legend_lines.append(f"{cat}s:")
+        if anonymize:
+            legend_lines.append(
+                f"{cat}s: " + ", ".join(f"{_PREFIX[cat]}{i + 1}" for i in range(len(values))))
+        else:
+            legend_lines.append(f"{cat}s:")
         for i, v in enumerate(values):
             sid = f"{_PREFIX[cat]}{i + 1}"
             short_ids[(cat, v)] = sid
-            legend_lines.append(f"  {sid} = {_label(v)}")
+            if not anonymize:
+                legend_lines.append(f"  {sid} = {_label(v)}")
 
     X = np.hstack(onehot_blocks)
     descriptions = [
@@ -104,20 +113,28 @@ def _read(path):
 
 
 def load_buchwald_hartwig(path: str = DEFAULT_PATH, subsample: int | None = None,
-                          seed: int = 0) -> Dataset:
+                          seed: int = 0, anonymize: bool = False) -> Dataset:
     df = _read(path)
     if subsample is not None and subsample < len(df):
         df = df.sample(n=subsample, random_state=seed).reset_index(drop=True)
 
-    X, descriptions, legend = _encode(df, _CATEGORIES)
-    legend = (
-        "Each reaction combines one ligand, base, additive and aryl halide, "
-        "referenced below by short id. Reagent identities (name and/or SMILES):\n" + legend
-    )
+    X, descriptions, legend = _encode(df, _CATEGORIES, anonymize=anonymize)
+    if anonymize:
+        legend = (
+            "Each reaction combines one ligand, base, additive and aryl halide, "
+            "referenced below by short id. Reagent identities are withheld (name ablation):\n"
+            + legend
+        )
+    else:
+        legend = (
+            "Each reaction combines one ligand, base, additive and aryl halide, "
+            "referenced below by short id. Reagent identities (name and/or SMILES):\n" + legend
+        )
     return Dataset(
         X=X, y=df[_YIELD].to_numpy(dtype=float), descriptions=descriptions,
         objective_label="reaction yield (%)",
-        title="Buchwald-Hartwig C-N coupling (Ahneman 2018)",
+        title="Buchwald-Hartwig C-N coupling (Ahneman 2018)"
+              + (" [anonymised]" if anonymize else ""),
         legend=legend,
     )
 
@@ -125,7 +142,7 @@ def load_buchwald_hartwig(path: str = DEFAULT_PATH, subsample: int | None = None
 DEFAULT_DA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "direct_arylation")
 
 
-def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR) -> Dataset:
+def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR, anonymize: bool = False) -> Dataset:
     """Direct C-H arylation condition optimisation (Shields et al., Nature 2021,
     doi:10.1038/s41586-021-03213-y).
 
@@ -135,7 +152,6 @@ def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR) -> Dataset:
     a GP over encodings starts blind, and it is where an LLM agent's prior knowledge
     (avoid dead ligand/base/solvent combinations) should pay off.
     """
-    import numpy as np
     import pandas as pd
 
     idx_path = os.path.join(dir_path, "experiment_index.csv")
@@ -150,7 +166,7 @@ def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR) -> Dataset:
         if not os.path.exists(p):
             return {}
         t = pd.read_csv(p)
-        return dict(zip(t[smiles_col], t[name_col]))
+        return dict(zip(t[smiles_col], t[name_col], strict=True))
 
     maps = {
         "Ligand_SMILES": name_map("ligand-list.csv", "Ligand_SMILES", "Ligand"),
@@ -166,14 +182,20 @@ def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR) -> Dataset:
     for col in cat_cols:
         kind = col.split("_")[0]
         values = list(dict.fromkeys(df[col].tolist()))
-        names = [maps[col].get(v, v) for v in values]
-        names_per_row[kind] = df[col].map(lambda v: maps[col].get(v, v)).tolist()
         index = {v: i for i, v in enumerate(values)}
+        if anonymize:
+            # Name ablation: opaque ids (L1, B2, S3) instead of reagent names/SMILES.
+            ids = {v: f"{kind[0]}{i + 1}" for i, v in enumerate(values)}
+            names_per_row[kind] = df[col].map(ids).tolist()
+            legend_lines.append(f"{kind}s: " + ", ".join(ids[v] for v in values))
+        else:
+            m = maps[col]
+            names_per_row[kind] = [m.get(v, v) for v in df[col]]
+            legend_lines.append(f"{kind}s: " + ", ".join(
+                f"{maps[col].get(v, v)} [{v}]" if maps[col] else str(v) for v in values))
         block = np.zeros((len(df), len(values)))
         block[np.arange(len(df)), df[col].map(index).to_numpy()] = 1.0
         blocks.append(block)
-        legend_lines.append(f"{kind}s: " + ", ".join(
-            f"{maps[col].get(v, v)} [{v}]" if maps[col] else str(v) for v in values))
 
     num = df[num_cols].to_numpy(dtype=float)
     lo, hi = num.min(axis=0), num.max(axis=0)
@@ -187,19 +209,22 @@ def load_direct_arylation(dir_path: str = DEFAULT_DA_DIR) -> Dataset:
             f"solvent={names_per_row['Solvent'][i]}, "
             f"concentration={df['Concentration'].iloc[i]:g} M, temp={df['Temp_C'].iloc[i]:g} C")
 
-    legend = ("Optimise reaction conditions. Reagent identities (name [SMILES]):\n"
+    identities = ("Reagent identities are withheld (name ablation); ligands/bases/solvents "
+                  "are opaque ids:" if anonymize else "Reagent identities (name [SMILES]):")
+    legend = (f"Optimise reaction conditions. {identities}\n"
               + "\n".join(legend_lines)
-              + f"\nConcentration in M, temperature in C (ranges shown across candidates).")
+              + "\nConcentration in M, temperature in C (ranges shown across candidates).")
 
     return Dataset(
         X=X, y=df["yield"].to_numpy(dtype=float), descriptions=descriptions,
         objective_label="reaction yield (%)",
-        title="Direct arylation (Shields 2021)",
+        title="Direct arylation (Shields 2021)" + (" [anonymised]" if anonymize else ""),
         legend=legend,
     )
 
 
-def load_buchwald_by_substrate(path: str = DEFAULT_PATH, limit: int | None = None) -> list:
+def load_buchwald_by_substrate(path: str = DEFAULT_PATH, limit: int | None = None,
+                               anonymize: bool = False) -> list:
     """One Dataset per aryl halide: optimise 4x3x22 ligand/base/additive for a fixed substrate.
 
     Returns up to ``limit`` sub-datasets (substrates ordered by first appearance).
@@ -213,16 +238,20 @@ def load_buchwald_by_substrate(path: str = DEFAULT_PATH, limit: int | None = Non
     cats = ["Ligand", "Base", "Additive"]  # aryl halide is fixed per sub-dataset
     for i, sub in enumerate(substrates):
         sdf = df[df["Aryl halide"] == sub].reset_index(drop=True)
-        X, descriptions, legend = _encode(sdf, cats)
+        X, descriptions, legend = _encode(sdf, cats, anonymize=anonymize)
+        sub_label = f"H{i + 1} (identity withheld)" if anonymize else _label(sub)
+        identities = ("Reagent identities are withheld (name ablation):" if anonymize
+                      else "Reagent identities (name and/or SMILES):")
         legend = (
-            f"All reactions below use a FIXED aryl halide: {_label(sub)}.\n"
-            "Choose the ligand, base and additive. Reagent identities (name and/or SMILES):\n"
+            f"All reactions below use a FIXED aryl halide: {sub_label}.\n"
+            f"Choose the ligand, base and additive. {identities}\n"
             + legend
         )
         datasets.append(Dataset(
             X=X, y=sdf[_YIELD].to_numpy(dtype=float), descriptions=descriptions,
             objective_label="reaction yield (%)",
-            title=f"Buchwald-Hartwig, substrate H{i + 1} ({len(sdf)} candidates)",
+            title=f"Buchwald-Hartwig, substrate H{i + 1} ({len(sdf)} candidates)"
+                  + (" [anonymised]" if anonymize else ""),
             legend=legend,
         ))
     return datasets
