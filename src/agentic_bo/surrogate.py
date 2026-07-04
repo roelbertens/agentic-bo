@@ -19,7 +19,7 @@ class GaussianSurrogate:
         self.seed = seed
         self.gp: GaussianProcessRegressor | None = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "GaussianSurrogate":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> GaussianSurrogate:
         kernel = (
             ConstantKernel(1.0, (1e-2, 1e2))
             * Matern(length_scale=0.3, length_scale_bounds=(1e-2, 1e1), nu=2.5)

@@ -12,3 +12,4 @@ data/*.xlsx
 data/direct_arylation/
 # Persistent LLM decision cache (local resume state)
 .cache/
+.ruff_cache/

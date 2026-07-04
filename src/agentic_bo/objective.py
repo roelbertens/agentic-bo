@@ -48,7 +48,7 @@ def _capacity(u: np.ndarray) -> np.ndarray:
 
 def _describe(x_phys: np.ndarray) -> str:
     return ", ".join(f"{n}={v:.1f}{('' if u == '-' else ' ' + u)}"
-                     for n, v, u in zip(_NAMES, x_phys, _UNITS))
+                     for n, v, u in zip(_NAMES, x_phys, _UNITS, strict=True))
 
 
 def sample_pool(n: int = 600, seed: int = 0) -> Dataset:
@@ -66,5 +66,6 @@ def sample_pool(n: int = 600, seed: int = 0) -> Dataset:
         X=X, y=y, descriptions=descriptions,
         objective_label="CO2 working capacity (mol/kg)",
         title="MOF CO2 capture (synthetic)",
-        legend="Descriptors: " + ", ".join(f"{n} ({u})" for n, u in zip(_NAMES, _UNITS)),
+        legend="Descriptors: " + ", ".join(
+            f"{n} ({u})" for n, u in zip(_NAMES, _UNITS, strict=True)),
     )

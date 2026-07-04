@@ -27,7 +27,7 @@ def plot_convergence(results, agent_name: str, n_init: int, out_path: str,
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
 
     for res in results:
-        color = _COLORS.get(res.name, None)
+        color = _COLORS.get(res.name)
         label = _LABELS.get(res.name, res.name)
         x = res.evaluations
         ax1.plot(x, res.mean, color=color, label=label, lw=2)

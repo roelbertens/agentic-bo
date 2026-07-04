@@ -49,14 +49,15 @@ def test_surrogate_helps_the_agent():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "data", "buchwald_hartwig.xlsx")),
+    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "data",
+                                    "buchwald_hartwig.xlsx")),
     reason="run scripts/get_data.py to fetch the Buchwald-Hartwig dataset",
 )
 def test_buchwald_loader_and_run():
     ds = reactions.load_buchwald_hartwig()
     assert ds.n == 3955
     assert ds.X.shape[1] == 4 + 3 + 22 + 15   # one-hot over the four reagent categories
-    assert 0.0 <= ds.y.min() and ds.y.max() <= 130.0
+    assert ds.y.min() >= 0.0 and ds.y.max() <= 130.0
     assert len(ds.descriptions) == ds.n and ds.legend
     curve = run_single(ds, AgenticBO(HeuristicAgent()), seed=0, budget=8, n_init=4)
     assert np.all(np.diff(curve) >= 0) and curve[-1] <= ds.best_value + 1e-9
