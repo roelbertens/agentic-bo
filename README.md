@@ -6,7 +6,9 @@ synthetic materials task and two **real reaction-optimisation datasets**. On the
 reproduces a published LLM-BO result — see the [headline result](#headline-result--direct-arylation-hard-task-reasoning-bo-protocol)
 and the honest write-up in [LEARNINGS.md](LEARNINGS.md).
 
-Four policies compete on the same task, using as few (simulated) experiments as possible:
+Five policies compete on the same task, using as few (simulated) experiments as possible.
+For a step-by-step, side-by-side walkthrough of *how each one decides* on one identical
+scenario (with real numbers and a visual), see **[docs/METHODS.md](docs/METHODS.md)**.
 
 | Policy | What it does |
 | --- | --- |
