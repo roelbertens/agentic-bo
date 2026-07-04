@@ -31,9 +31,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from agentic_bo import objective, plotting, reactions
 from agentic_bo.data import permute_yields
 from agentic_bo.experiment import run_method, run_method_per_substrate
-from agentic_bo.policies import AgenticBO, ClassicBO, RandomPolicy
+from agentic_bo.policies import AgenticBO, AgenticToolBO, ClassicBO, RandomPolicy
 
+# "agentic_tools" (the genuinely-agentic tool loop) is opt-in: not in the default set,
+# since it needs a tool-capable agent (heuristic offline, or gemini with an API key).
 ALL_METHODS = ["random", "classic_bo", "agentic_bo", "agentic_no_surrogate"]
+METHOD_CHOICES = [*ALL_METHODS, "agentic_tools"]
 
 
 def build_agent(kind: str, model: str, verbose: bool, cache=None):
@@ -50,6 +53,19 @@ def build_agent(kind: str, model: str, verbose: bool, cache=None):
 
         return AnthropicAgent(model=model, verbose=verbose, cache=cache)
     raise ValueError(f"unknown agent kind: {kind}")
+
+
+def build_tool_agent(kind: str, worker_model: str, reasoner_model: str, verbose: bool, cache=None):
+    if kind == "heuristic":
+        from agentic_bo.agentic import HeuristicToolAgent
+
+        return HeuristicToolAgent()
+    if kind == "gemini":
+        from agentic_bo.agentic import GeminiToolAgent
+
+        return GeminiToolAgent(worker_model=worker_model, reasoner_model=reasoner_model,
+                               verbose=verbose, cache=cache)
+    raise ValueError("agentic_tools supports --agent heuristic or gemini (not claude yet)")
 
 
 DEFAULT_MODEL = {"gemini": "gemini-2.5-flash", "claude": "claude-opus-4-8", "heuristic": ""}
@@ -97,7 +113,13 @@ def main() -> None:
     p.add_argument("--agent", choices=["heuristic", "gemini", "claude"], default="heuristic",
                    help="backend for the agentic policy (default: heuristic, needs no API key)")
     p.add_argument("--model", default=None, help="LLM model id (defaults per agent)")
-    p.add_argument("--methods", nargs="+", default=ALL_METHODS, choices=ALL_METHODS)
+    p.add_argument("--worker-model", default="gemini-2.5-flash",
+                   help="agentic_tools: model for the investigation step (tool exploration)")
+    p.add_argument("--reasoner-model", default="gemini-2.5-flash",
+                   help="agentic_tools: model for the decision step. Set a stronger model here "
+                        "(e.g. gemini-2.5-pro) to test whether a better reasoner at the decision "
+                        "step, with a cheap worker, beats the single-call agent")
+    p.add_argument("--methods", nargs="+", default=ALL_METHODS, choices=METHOD_CHOICES)
     p.add_argument("--out", default="results", help="output directory")
     p.add_argument("--no-cache", action="store_true",
                    help="disable the persistent decision cache "
@@ -114,7 +136,11 @@ def main() -> None:
     if args.anonymize and args.dataset == "mof":
         p.error("--anonymize only applies to the reaction datasets (buchwald / arylation)")
 
-    n_agentic = sum(m.startswith("agentic") for m in args.methods)
+    want_tools = "agentic_tools" in args.methods
+    n_single_agentic = sum(m in ("agentic_bo", "agentic_no_surrogate") for m in args.methods)
+    n_agentic = n_single_agentic + want_tools
+    if want_tools and args.agent == "claude":
+        p.error("agentic_tools supports --agent heuristic or gemini (not claude yet)")
     import math
     rounds = math.ceil(args.budget / args.batch_size)
     if per_sub:
@@ -147,24 +173,36 @@ def main() -> None:
         print(f"Heads-up: up to ~{n_decisions} {args.agent} API calls this run.")
     print()
 
-    agent = None
-    if n_agentic:
-        cache = None
-        if args.agent != "heuristic" and not args.no_cache:
-            from agentic_bo.cache import PromptCache
+    def load_cache(fname):
+        if args.agent == "heuristic" or args.no_cache:
+            return None
+        from agentic_bo.cache import PromptCache
 
-            cache_path = os.path.join(".cache", f"decisions_{args.agent}_{model}.json")
-            cache = PromptCache(cache_path)
-            if cache.data:
-                print(f"Decision cache: {len(cache.data)} entries at {cache_path} "
-                      f"(matching steps resume for free).")
-        agent = build_agent(args.agent, model, args.verbose, cache=cache)
+        cache_path = os.path.join(".cache", fname)
+        cache = PromptCache(cache_path)
+        if cache.data:
+            print(f"Decision cache: {len(cache.data)} entries at {cache_path} "
+                  f"(matching steps resume for free).")
+        return cache
+
+    agent = None
+    if n_single_agentic:
+        agent = build_agent(args.agent, model, args.verbose,
+                            cache=load_cache(f"decisions_{args.agent}_{model}.json"))
+    tool_agent = None
+    if want_tools:
+        tool_cache = load_cache(f"tools_{args.worker_model}_{args.reasoner_model}.json")
+        tool_agent = build_tool_agent(args.agent, args.worker_model, args.reasoner_model,
+                                      args.verbose, cache=tool_cache)
+        print(f"agentic_tools routing: worker={args.worker_model} -> "
+              f"reasoner={args.reasoner_model}")
 
     factories = {
         "random": lambda: RandomPolicy(),
         "classic_bo": lambda: ClassicBO(),
         "agentic_bo": lambda: AgenticBO(agent, use_surrogate=True),
         "agentic_no_surrogate": lambda: AgenticBO(agent, use_surrogate=False),
+        "agentic_tools": lambda: AgenticToolBO(tool_agent),
     }
 
     results = []
@@ -179,23 +217,29 @@ def main() -> None:
                 dataset, factories[name], name, seeds, args.budget, args.n_init,
                 args.batch_size))
 
-    # Evaluation hygiene: if the agent fell back to EI/heuristic, the "agentic" numbers
-    # are not really the model — make that impossible to miss.
-    if agent is not None and getattr(agent, "calls", 0):
-        hits = getattr(agent, "cache_hits", 0)
-        api_calls = agent.calls - hits
-        cache_note = f" ({hits} from cache, {api_calls} live API calls)" if hits else ""
-        fb = agent.fallbacks
+    # Evaluation hygiene: if an agent fell back to EI/heuristic, the "agentic" numbers
+    # are not really the model — make that impossible to miss (for both agent flavours).
+    for label, a in (("agentic", agent), ("agentic_tools", tool_agent)):
+        if a is None or not getattr(a, "calls", 0):
+            continue
+        hits = getattr(a, "cache_hits", 0)
+        cache_note = f" ({hits} tool-calls from cache)" if hits else ""
+        fb = a.fallbacks
         if fb:
-            print(f"\n[!] {args.agent} agent fell back {fb}/{agent.calls} decisions "
-                  f"({100 * fb / agent.calls:.0f}%). "
-                  f"Those picks are EI/heuristic, not the model.{cache_note}")
+            print(f"\n[!] {args.agent} {label} fell back on {fb}/{a.calls} decisions "
+                  f"({100 * fb / a.calls:.0f}%). Those picks are EI, not the model.{cache_note}")
         else:
-            print(f"\n[ok] {args.agent} agent made all {agent.calls} decisions "
+            print(f"\n[ok] {args.agent} {label} made all {a.calls} decisions "
                   f"(no fallbacks).{cache_note}")
 
     agent_label = args.agent if args.agent == "heuristic" else f"{args.agent}:{model}"
-    variant = f"{'_anon' if args.anonymize else ''}{'_permuted' if args.permute_yields else ''}"
+    tools_tag = ""
+    if want_tools:  # encode the worker->reasoner routing so configs don't clobber each other
+        short = lambda m: m.replace("gemini-2.5-", "").replace("gemini-", "")  # noqa: E731
+        tools_tag = (f"_tools_{short(args.worker_model)}-{short(args.reasoner_model)}"
+                     if args.agent == "gemini" else "_tools")
+    variant = (f"{tools_tag}"
+               f"{'_anon' if args.anonymize else ''}{'_permuted' if args.permute_yields else ''}")
     tag = f"{args.dataset}{'_persub' if per_sub else ''}{variant}_{args.agent}"
     plot_path = os.path.join(args.out, f"convergence_{tag}.png")
     plotting.plot_convergence(results, agent_label, args.n_init, plot_path,
@@ -248,10 +292,14 @@ def main() -> None:
 
     # Every agentic decision (shortlist + ground truth + the agent's stated strategy and
     # rationale) is logged so the reasoning can be audited against reality afterwards.
-    if agent is not None and getattr(agent, "decision_log", None):
+    decision_log = []
+    for a in (agent, tool_agent):
+        decision_log += getattr(a, "decision_log", None) or []
+    if decision_log:
+        decision_log.sort(key=lambda r: (r["policy"], r["seed"], r["round"]))
         log_path = os.path.join(args.out, f"decisions_{tag}.jsonl")
         with open(log_path, "w") as f:
-            for rec in agent.decision_log:
+            for rec in decision_log:
                 f.write(json.dumps(rec) + "\n")
         print(f"Saved decision log -> {log_path}")
         print(f"Audit it with: uv run scripts/audit_decisions.py {log_path}")

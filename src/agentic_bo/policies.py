@@ -15,6 +15,7 @@ from __future__ import annotations
 import numpy as np
 
 from .agent import DecisionContext
+from .agentic import BOEnvironment, _round_context
 from .data import Dataset
 from .surrogate import GaussianSurrogate, expected_improvement
 
@@ -121,6 +122,69 @@ class AgenticBO:
             "cache_hit": bool(dec.get("cache_hit", False)),
             "picked_pos": [int(p) for p in positions],
             "shortlist": shortlist,
+        })
+
+
+class AgenticToolBO:
+    """Genuinely agentic policy (LEARNINGS next-step 11): the agent drives the round
+    through a tool-calling loop with a scratchpad carried across rounds.
+
+    Unlike ``AgenticBO`` (one call ranking a fixed shortlist), the agent here queries
+    the surrogate and searches the pool itself via tools, and deliberates in two phases
+    (see ``agentic.py``). The batch size ``q`` and budget stay fixed for a fair
+    head-to-head with ``AgenticBO``.
+    """
+
+    name = "agentic_tools"
+
+    def __init__(self, agent, shortlist_size: int = 8):
+        self.agent = agent
+        self.shortlist_size = shortlist_size
+        self.memory = ""             # scratchpad, persists across rounds within a campaign
+
+    def propose_batch(self, dataset, evaluated, y_obs, iteration, budget, rng, seed, q=1):
+        unseen = _unseen(dataset, evaluated)
+        q = min(q, len(unseen))
+        mean, std = _fit_predict(dataset, evaluated, y_obs, unseen, seed)
+        ei = expected_improvement(mean, std, best=float(np.max(y_obs)))
+        env = BOEnvironment(dataset, unseen, mean, std, ei, self.memory, rng)
+        remaining_evals = int(round((budget - iteration + 1) * q))  # approx evals left
+        ctx = _round_context(dataset, list(evaluated), list(y_obs), iteration, budget,
+                             remaining_evals, q)
+
+        dec = self.agent.propose_round(env, ctx, q)
+        picks = [int(i) for i in dec.picks][:q]
+        if dec.note:  # carry a compact scratchpad forward (keep the last few notes)
+            self.memory = (self.memory + f"\nR{iteration}: {dec.note}").strip()
+            self.memory = "\n".join(self.memory.splitlines()[-8:])
+        self._log(dataset, seed, iteration, budget, y_obs, q, picks, dec, env)
+        return picks
+
+    def _log(self, dataset, seed, iteration, budget, y_obs, q, picks, dec, env):
+        log = getattr(self.agent, "decision_log", None)
+        if log is None:
+            return
+        stats = {c["id"]: c for c in env.predict(sorted(set(env.considered) | set(picks)))}
+        shortlist = []
+        for gid, c in stats.items():
+            entry = {"id": int(gid), "desc": c["desc"], "y": float(dataset.y[gid]),
+                     "mean": c["mean"], "std": c["std"], "ei": c["ei"]}
+            if dataset.y_true is not None:
+                entry["y_true"] = float(dataset.y_true[gid])
+            shortlist.append(entry)
+        id_pos = {e["id"]: p for p, e in enumerate(shortlist)}
+        log.append({
+            "dataset": dataset.title, "policy": self.name, "seed": int(seed),
+            "round": int(iteration), "n_rounds": int(budget), "best_so_far": float(max(y_obs)),
+            "n_select": int(q), "strategy": dec.strategy, "rationale": dec.rationale,
+            "fallback": bool(dec.fallback), "cache_hit": False,
+            "picked_pos": [id_pos[i] for i in picks if i in id_pos],
+            "shortlist": shortlist,
+            # agentic-specific extras (ignored by audit_decisions, used by the writeup)
+            "note": dec.note, "want_batch_size": dec.want_batch_size,
+            "want_stop": dec.want_stop, "n_tool_calls": len(dec.tool_calls),
+            "tool_calls": [{"phase": t["phase"], "name": t["name"]} for t in dec.tool_calls],
+            "phase_models": dec.phase_models, "n_considered": len(env.considered),
         })
 
 
