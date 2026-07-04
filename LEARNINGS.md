@@ -187,6 +187,62 @@ alone would have misattributed to chemistry knowledge, and one that should trans
 search spaces the model has never seen. That is a *more* encouraging result than the one
 it replaces, and we only own it because the counterfactual runs were cheap to ask for.
 
+## 8. Making the agent *actually* agentic — tool use, memory, deliberation
+
+Sections 1–7 all study the single-call agent: one structured LLM call per round ranking a
+fixed EI shortlist. §"next steps" 11 called that honestly *LLM-guided BO* and asked whether
+a genuinely agentic loop — the model driving the round through tools, with memory and
+multi-step deliberation — does better. `agentic.py` implements it: a two-phase loop where an
+**investigate** step (worker model) queries the surrogate on candidates it names, searches
+the whole pool itself, and recalls a cross-round scratchpad, then a **deliberate** step
+(reasoner model) verifies and submits. Because the two phases are separate model calls, we
+can route a **stronger model to the decision step only** — the concrete question being
+whether a good reasoner deciding, with a cheap worker exploring, beats the single call.
+
+Arylation, paper protocol, 10 seeds, Gemini (final = best-so-far %opt; IMP@k per-round):
+
+| method | IMP@1 | IMP@3 | IMP@5 | final |
+| --- | --- | --- | --- | --- |
+| classic BO (GP+EI, LP batch) | 36.2 | 61.6 | 70.0 | 87% |
+| agentic BO — single call (flash) | 41.9 | 66.9 | 71.4 | **95%** |
+| agentic BO — no surrogate (flash) | 53.0 | 47.3 | 47.2 | 92% |
+| **agentic tools — flash + flash** | 55.0 | 54.5 | **73.6** | 86±7% |
+| **agentic tools — flash + Pro** | **57.8** | 66.7 | 68.5 | 90±9% |
+
+Three things, read honestly:
+
+- **Tool-agency delivers a large, robust cold-start gain.** IMP@1 jumps 41.9 → 55–58 —
+  above even the knowledge-only no-surrogate agent (53.0). Letting the model *search the
+  pool and query the surrogate itself* makes its round-one picks markedly better, and IMP@1
+  is precisely the regime §4 identified as the agent's real, robust edge. This is the
+  clearest win and it is well outside the seed spread.
+- **A stronger reasoner at the decision step does exactly what was hoped — and where.** Going
+  flash→Pro at *only* the deliberate step lifts IMP@3 54.5 → 66.7 (back to the single-call
+  agent's level) and final 86% → 90%, while pushing cold-start higher still (57.8). The
+  routing pays off at the *convergence* end, repairing the mid/late weakness that pure
+  tool-agency introduced — with a cheap worker still doing the exploration. So "different
+  models for different steps" is a real lever, not a wash.
+- **But "more agentic" is not a uniform win.** Neither tool config beats the simple
+  single-call agent on the final metric (95%); flash+flash actually trades final convergence
+  (86%) for its exploration gains. The tool agent explores harder — great early and mid,
+  softer late. The final-metric differences among the agentic variants sit within the ±7–9
+  per-seed spread, so the honest claim is *not* "the tool agent converges worse" but "it wins
+  cold-start decisively and matches (Pro) or slightly trails (flash) on final."
+
+The agent used its agency sparingly and sensibly: ~2.9 tool calls/round, and when asked what
+it *would* do with loop control it kept batch size at 3 and only wanted to stop at round 10 —
+so holding q fixed for fairness cost nothing here.
+
+**Lesson.** The practical read is the hybrid of §"next steps" 8, now with evidence: use the
+agentic tool loop (and a strong reasoner) for the **cold start**, where it is decisively best,
+and a plain single-call agent or classic BO for **late convergence**. Making the agent
+genuinely agentic doesn't dominate everywhere — it *sharpens the exact edge the earlier
+sections said was real*, and model-routing is the knob that trades exploration for
+convergence. (Offline the same loop runs deterministically via a `HeuristicToolAgent`, so
+CI still exercises every tool + the memory path without an API key.)
+
+![convergence — flash+Pro tool agent](results/convergence_arylation_tools_flash-pro_gemini.png)
+
 ## Caveats / limitations
 
 - Absolute parity with the paper is not achievable: their search space is under-specified
@@ -237,23 +293,26 @@ Extensions:
    model quality should matter. A stronger reasoning model (backend is already pluggable)
    would show whether the edge *scales* with capability. The mid-trajectory tie is less
    likely to move: there the surrogate, not the agent, carries the signal.
-8. **A hybrid policy.** The findings suggest the practical recipe directly: agent for the
-   first rounds (cold start), classic BO mid-game, agent again if progress stalls (trap
-   escape). Test it as a fifth method.
+8. **A hybrid policy.** *(now evidence-backed — see §8.)* The findings suggest the practical
+   recipe directly: agent for the first rounds (cold start), classic BO mid-game, agent again
+   if progress stalls (trap escape). The §8 tool-agent results make the case concrete — the
+   agentic loop is decisively best at cold start and softer late, exactly the split a hybrid
+   would exploit. Still worth building and testing as an explicit fifth method.
 9. **A genuinely continuous / higher-dimensional** reaction space, where a GP-from-scratch
    is weakest and the chemistry prior should matter most — the regime the cold-start result
    already hints at.
 10. **Cost accounting.** Report API cost and wall-clock next to the yield numbers;
     "+9pp final best for cents of API calls" is the decision-relevant form of the result.
-11. **Make the agent actually agentic.** Today the "agent" is one stateless, structured LLM
-    call per round — the harness does the interesting work (fits the GP, computes EI, builds
-    the shortlist) and the LLM only ranks ~8 pre-digested options. "LLM-guided BO" is the
-    honest label. The agentic upgrades, in rough order of expected value:
-    - **Tool use:** let the model query the surrogate itself ("predict these 5 points"),
-      request more candidates, or compute — instead of receiving a fixed shortlist.
-    - **Control over the loop:** let it choose batch size q, stop early, or tune the
-      explore/exploit mix of the shortlist.
-    - **Persistent memory:** a scratchpad carried across rounds ("aryl halide X consistently
-      underperforms") instead of re-reading raw history each round.
-    - **Multi-step deliberation:** hypothesise → verify against the surrogate → pick,
-      rather than one shot.
+11. **Make the agent actually agentic.** *(done — findings in §8; `agentic.py` +
+    `policies.AgenticToolBO`.)* The single-call agent only ranks ~8 pre-digested options.
+    The tool-agent now implements all four upgrades — tool use (query the surrogate / search
+    the pool), loop control (states a preferred q / stop, logged), persistent memory
+    (cross-round scratchpad), and two-phase hypothesise→verify→pick — with per-phase model
+    routing. Result: a decisive cold-start gain, a stronger reasoner repairs late
+    convergence, but no uniform win over the single call. Remaining threads:
+    - **Act on loop control.** We *log* the agent's preferred q / stop but hold them fixed
+      for fair IMP@k; a variable-budget mode (spend saved evaluations elsewhere) is untested.
+    - **Cross-provider routing.** The routing is Gemini-only today; a Claude tool-agent
+      backend would let worker/reasoner span providers.
+    - **The hybrid (§8 / next-step 8):** wire tool-agent-for-cold-start + BO-for-convergence
+      into one policy and measure the combination directly.

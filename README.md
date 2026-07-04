@@ -180,6 +180,55 @@ few-shot combinatorial reasoning over the init observations, not named chemistry
 under permuted yields everything collapses to random with a clean leakage indicator — **no
 evidence the headline result is dataset recall**.
 
+## Making the agent *actually* agentic (tool use, memory, deliberation)
+
+The `agentic_bo` policy above is honestly **LLM-guided BO**: one stateless call per round
+that ranks ~8 pre-digested options while the harness does the real work. The `agentic_tools`
+policy ([agentic.py](src/agentic_bo/agentic.py)) is the genuinely-agentic version — each
+round the model *drives* the loop through Gemini function-calling, in two phases that can
+use **different models**:
+
+- **Investigate** (worker model) — a tool loop over the real BO state: `predict` the
+  surrogate on any candidates it names, `search_candidates` across the whole pool itself
+  (by EI / mean / uncertainty / reagent match / random) instead of a fixed shortlist, and
+  `recall` a scratchpad carried across rounds. Ends with `report`.
+- **Deliberate** (reasoner model) — given the report, the measured history and its memory,
+  optionally `predict` a few candidates to verify a hypothesis, then `submit` the batch with
+  a `strategy`/`rationale` and a `note` appended to memory.
+
+The research question this sets up: **does a stronger reasoner at the decision step (with a
+cheap worker exploring) beat the single-call agent?** Route the two steps independently:
+
+```bash
+# Tool-agency alone (same model both phases) vs a stronger reasoner at the decision step:
+uv run run.py --dataset arylation --agent gemini --methods classic_bo agentic_bo agentic_tools \
+              --worker-model gemini-2.5-flash --reasoner-model gemini-2.5-flash \
+              --n-init 3 --budget 30 --batch-size 3 --seeds 10
+uv run run.py --dataset arylation --agent gemini --methods agentic_tools \
+              --worker-model gemini-2.5-flash --reasoner-model gemini-2.5-pro \
+              --n-init 3 --budget 30 --batch-size 3 --seeds 10
+```
+
+The batch size `q` and total budget stay **fixed** for a fair head-to-head with
+`agentic_bo` (the §3 lesson again); the agent may *state* a preferred batch size or a
+"stop now" — logged for analysis, not acted on. Runs are tagged by routing
+(`..._tools_flash-flash_...`, `..._tools_flash-pro_...`) so configs never clobber. Offline,
+`--agent heuristic` uses a deterministic tool agent (the CI path and knowledge-free floor).
+
+**Does it help?** (arylation, 10 seeds, full write-up in [LEARNINGS.md §8](LEARNINGS.md)):
+
+| method | IMP@1 | IMP@3 | IMP@5 | final |
+| --- | --- | --- | --- | --- |
+| agentic BO — single call (flash) | 41.9 | 66.9 | 71.4 | **95%** |
+| agentic tools — flash + flash | 55.0 | 54.5 | **73.6** | 86% |
+| **agentic tools — flash + Pro** | **57.8** | 66.7 | 68.5 | 90% |
+
+Tool-agency buys a large, robust **cold-start** gain (IMP@1 42 → 55–58, beating even the
+knowledge-only agent), and routing a **stronger reasoner to the decision step** (flash→Pro)
+repairs the mid/late convergence that pure tool-agency softens. But it is *not* a uniform
+win — the simple single call still converges best on the final metric. The honest read is a
+hybrid: agentic tool loop for cold start, plain agent / classic BO for late convergence.
+
 ## How the agentic loop works
 
 Each round the agentic policy:
@@ -210,8 +259,9 @@ src/agentic_bo/
   objective.py             synthetic MOF pool + ground-truth objective
   reactions.py             real loaders: Buchwald-Hartwig + direct arylation (named reagents)
   surrogate.py             GP surrogate + Expected Improvement
-  agent.py                 decision context + Heuristic / Gemini / Claude backends
-  policies.py              random, classic BO (local-penalization batch), agentic BO (+ ablation)
+  agent.py                 decision context + Heuristic / Gemini / Claude backends (single call)
+  agentic.py               genuinely-agentic tool loop: env + tools, two-phase agent, memory
+  policies.py              random, classic BO, agentic BO (+ ablation), agentic-tools
   experiment.py            multi-seed runs, convergence curves + per-round IMP@k
   plotting.py              convergence + regret figures
   cache.py                 persistent prompt->decision cache (free resume)

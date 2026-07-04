@@ -1,0 +1,21 @@
+{
+  "dataset": "Direct arylation (Shields 2021)",
+  "optimum": 100.0,
+  "agent": "gemini:gemini-2.5-flash",
+  "batch_size": 3,
+  "checkpoints": [
+    "IMP@1",
+    "IMP@3",
+    "IMP@5"
+  ],
+  "methods": {
+    "agentic_tools": {
+      "final_best_mean": 90.455,
+      "final_best_std": 9.397367982578952,
+      "pct_of_optimum_final": 90.455,
+      "IMP@1": 57.834999999999994,
+      "IMP@3": 66.656,
+      "IMP@5": 68.461
+    }
+  }
+}
