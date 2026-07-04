@@ -182,6 +182,34 @@ few-shot combinatorial reasoning over the init observations, not named chemistry
 under permuted yields everything collapses to random with a clean leakage indicator — **no
 evidence the headline result is dataset recall**.
 
+## Structured evals with Langfuse (optional)
+
+The decision log is the source of truth; [Langfuse](https://langfuse.com) (MIT, self-hostable)
+adds the structured layer on top: a trace UI to drill into any single decision, first-class
+scores, and session-level A/B comparison across policies and seeds. The mapping is
+**session = run tag, trace = policy × seed campaign, span = decision round**, with the
+audit's own metrics attached as scores (`pick_percentile`, `follows_max_ei`,
+`overrule_gain_y`, `batch_best_y`, `fallback`, `cache_hit`) — computed by the same code
+(`agentic_bo/tracing.py:derived_scores`), so the UI and `audit_decisions.py` can never
+disagree.
+
+```bash
+uv sync --extra eval
+export LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=...
+export LANGFUSE_HOST=http://localhost:3000    # self-hosted; omit for Langfuse cloud
+
+# Live: trace a run as it happens (adds per-decision LLM latency):
+uv run run.py --dataset arylation --agent gemini --batch-size 3 --langfuse
+
+# Backfill: push an existing decision log — cached runs included, zero API calls:
+uv run scripts/push_to_langfuse.py results/decisions_arylation_gemini.jsonl
+```
+
+To self-host: `git clone https://github.com/langfuse/langfuse && cd langfuse &&
+docker compose up`, then create a project at `http://localhost:3000` and copy its keys.
+Tracing is off by default, needs no dependencies unless enabled, and fails soft — a
+missing package, key, or server prints one warning and never touches the run.
+
 ## Making the agent *actually* agentic (tool use, memory, deliberation)
 
 The `agentic_bo` policy above is honestly **LLM-guided BO**: one stateless call per round
@@ -256,6 +284,7 @@ run.py                     CLI: run the benchmark, write plot + summary + decisi
 scripts/get_data.py        download the reaction datasets (Buchwald + arylation)
 scripts/audit_decisions.py rationale audit: check the agent's reasoning against ground truth
 scripts/leakage_probe.py   zero-shot data-leakage probe (with/without reagent names)
+scripts/push_to_langfuse.py backfill a decision log into Langfuse (traces + audit scores)
 src/agentic_bo/
   data.py                  dataset-agnostic container + permute-yields leakage check
   objective.py             synthetic MOF pool + ground-truth objective
@@ -267,6 +296,7 @@ src/agentic_bo/
   experiment.py            multi-seed runs, convergence curves + per-round IMP@k
   plotting.py              convergence + regret figures
   cache.py                 persistent prompt->decision cache (free resume)
+  tracing.py               optional Langfuse tracing (no-op unless --langfuse)
 tests/                     end-to-end + credibility-tooling checks (offline)
 .claude/skills/            repo skills: quality-gate (pre-commit) + experiment-hygiene
 .github/workflows/ci.yml   CI: ruff + pytest on 3.10 and 3.13

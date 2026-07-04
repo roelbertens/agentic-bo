@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from . import tracing
 from .agent import DecisionContext
 from .agentic import BOEnvironment, _round_context
 from .data import Dataset
@@ -113,16 +114,19 @@ class AgenticBO:
                              ei=float(ctx.ei[pos]))
             shortlist.append(entry)
         dec = getattr(self.agent, "last_decision", None) or {}
-        log.append({
+        rec = {
             "dataset": dataset.title, "policy": self.name, "seed": int(seed),
             "round": int(ctx.iteration), "n_rounds": int(ctx.budget),
             "best_so_far": ctx.best_value, "n_select": int(ctx.n_select),
             "strategy": dec.get("strategy"), "rationale": dec.get("rationale"),
             "fallback": bool(dec.get("fallback", False)),
             "cache_hit": bool(dec.get("cache_hit", False)),
+            "latency_s": dec.get("latency_s"),
             "picked_pos": [int(p) for p in positions],
             "shortlist": shortlist,
-        })
+        }
+        log.append(rec)
+        tracing.log_decision(rec)
 
 
 class AgenticToolBO:
@@ -173,7 +177,7 @@ class AgenticToolBO:
                 entry["y_true"] = float(dataset.y_true[gid])
             shortlist.append(entry)
         id_pos = {e["id"]: p for p, e in enumerate(shortlist)}
-        log.append({
+        rec = {
             "dataset": dataset.title, "policy": self.name, "seed": int(seed),
             "round": int(iteration), "n_rounds": int(budget), "best_so_far": float(max(y_obs)),
             "n_select": int(q), "strategy": dec.strategy, "rationale": dec.rationale,
@@ -185,7 +189,9 @@ class AgenticToolBO:
             "want_stop": dec.want_stop, "n_tool_calls": len(dec.tool_calls),
             "tool_calls": [{"phase": t["phase"], "name": t["name"]} for t in dec.tool_calls],
             "phase_models": dec.phase_models, "n_considered": len(env.considered),
-        })
+        }
+        log.append(rec)
+        tracing.log_decision(rec)
 
 
 def _length_scale(Xc, rng, sample: int = 200) -> float:

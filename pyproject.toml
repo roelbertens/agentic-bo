@@ -20,6 +20,8 @@ dependencies = [
 # LLM agent backends (only the one you use is needed):
 gemini = ["google-genai>=1.0"]   # --agent gemini
 claude = ["anthropic>=0.40"]     # --agent claude
+# Structured eval/tracing stack (run.py --langfuse, scripts/push_to_langfuse.py):
+eval = ["langfuse>=3.0"]
 
 [dependency-groups]
 dev = ["pytest>=7.0", "ruff>=0.4"]

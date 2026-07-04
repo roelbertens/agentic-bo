@@ -17,6 +17,7 @@ synthetic MOF task and the real reaction dataset.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 
 import numpy as np
@@ -153,7 +154,7 @@ class _LLMAgent:
         self.calls += 1
         prompt = _build_prompt(ctx)
         picks = []
-        data, hit = {}, False
+        data, hit, latency = {}, False, None
         try:
             raw = None
             if self.cache is not None:
@@ -163,7 +164,9 @@ class _LLMAgent:
                 hit = True
                 self.cache_hits += 1
             else:
+                t0 = time.monotonic()
                 raw = self._raw_decision(prompt)
+                latency = time.monotonic() - t0
                 if self.cache is not None:
                     self.cache.put(key, raw)
             data = json.loads(raw)
@@ -184,7 +187,7 @@ class _LLMAgent:
                 if len(picks) == ctx.n_select:
                     break
         self.last_decision = {"strategy": data.get("strategy"), "rationale": data.get("rationale"),
-                              "fallback": fell_back, "cache_hit": hit}
+                              "fallback": fell_back, "cache_hit": hit, "latency_s": latency}
         return picks
 
 

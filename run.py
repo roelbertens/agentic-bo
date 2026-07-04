@@ -124,6 +124,9 @@ def main() -> None:
     p.add_argument("--no-cache", action="store_true",
                    help="disable the persistent decision cache "
                         "(LLM agents resume for free by default)")
+    p.add_argument("--langfuse", action="store_true",
+                   help="push every agentic decision to Langfuse as traces + scores "
+                        "(needs `uv sync --extra eval` and LANGFUSE_* env vars)")
     p.add_argument("--verbose", action="store_true", help="print each agent decision's rationale")
     args = p.parse_args()
 
@@ -197,6 +200,26 @@ def main() -> None:
         print(f"agentic_tools routing: worker={args.worker_model} -> "
               f"reasoner={args.reasoner_model}")
 
+    agent_label = args.agent if args.agent == "heuristic" else f"{args.agent}:{model}"
+    tools_tag = ""
+    if want_tools:  # encode the worker->reasoner routing so configs don't clobber each other
+        short = lambda m: m.replace("gemini-2.5-", "").replace("gemini-", "")  # noqa: E731
+        tools_tag = (f"_tools_{short(args.worker_model)}-{short(args.reasoner_model)}"
+                     if args.agent == "gemini" else "_tools")
+    variant = (f"{tools_tag}"
+               f"{'_anon' if args.anonymize else ''}{'_permuted' if args.permute_yields else ''}")
+    tag = f"{args.dataset}{'_persub' if per_sub else ''}{variant}_{args.agent}"
+
+    traced = False
+    if args.langfuse:
+        from agentic_bo import tracing
+
+        traced = tracing.enable(session_id=tag, metadata={
+            "dataset": args.dataset, "agent": agent_label, "batch_size": args.batch_size,
+            "budget": args.budget, "n_init": args.n_init, "seeds": args.seeds,
+            "anonymize": args.anonymize, "permute_yields": args.permute_yields,
+        })
+
     factories = {
         "random": lambda: RandomPolicy(),
         "classic_bo": lambda: ClassicBO(),
@@ -232,15 +255,6 @@ def main() -> None:
             print(f"\n[ok] {args.agent} {label} made all {a.calls} decisions "
                   f"(no fallbacks).{cache_note}")
 
-    agent_label = args.agent if args.agent == "heuristic" else f"{args.agent}:{model}"
-    tools_tag = ""
-    if want_tools:  # encode the worker->reasoner routing so configs don't clobber each other
-        short = lambda m: m.replace("gemini-2.5-", "").replace("gemini-", "")  # noqa: E731
-        tools_tag = (f"_tools_{short(args.worker_model)}-{short(args.reasoner_model)}"
-                     if args.agent == "gemini" else "_tools")
-    variant = (f"{tools_tag}"
-               f"{'_anon' if args.anonymize else ''}{'_permuted' if args.permute_yields else ''}")
-    tag = f"{args.dataset}{'_persub' if per_sub else ''}{variant}_{args.agent}"
     plot_path = os.path.join(args.out, f"convergence_{tag}.png")
     plotting.plot_convergence(results, agent_label, args.n_init, plot_path,
                               objective_label=plot_objective, title=plot_title)
@@ -303,6 +317,12 @@ def main() -> None:
                 f.write(json.dumps(rec) + "\n")
         print(f"Saved decision log -> {log_path}")
         print(f"Audit it with: uv run scripts/audit_decisions.py {log_path}")
+
+    if traced:
+        from agentic_bo import tracing
+
+        tracing.flush()
+        print(f"Langfuse: decisions pushed under session '{tag}'.")
 
 
 if __name__ == "__main__":
