@@ -1,0 +1,12 @@
+{
+  "dataset": "Direct arylation (Shields 2021) [anonymised]",
+  "agent": "gemini:gemini-2.5-flash",
+  "trials": 40,
+  "k": 8,
+  "failures": 0,
+  "mean_pool_percentile": 56.83738425925926,
+  "blind_pool_percentile": 54.11134152091906,
+  "mean_pick_yield": 25.798250000000003,
+  "pool_mean_yield": 19.374704861111113,
+  "best_in_shortlist_rate": 0.2
+}

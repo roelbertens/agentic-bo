@@ -133,6 +133,53 @@ On the **easy** `buchwald` task the opposite holds — the surrogate *hurts* the
 greedy EI is already near-optimal and the agent only adds noise. **Whether an LLM helps BO is
 dataset-dependent**; benchmark on the regime that matches your problem.
 
+## Credibility checks — is the agent's edge real?
+
+Both datasets are public and plausibly in LLM training data, and the agent returns a
+free-text rationale that could be confabulated. The repo ships three tools to attack its
+own headline claim (next steps 1–3 in [LEARNINGS.md](LEARNINGS.md)):
+
+**Rationale audit** *(no API calls)* — every agentic run writes
+`results/decisions_<tag>.jsonl`: per decision the full shortlist with ground truth next to
+the agent's stated `strategy`/`rationale`. The audit checks the reasoning against reality —
+do "exploit" rounds out-yield "explore" rounds, do picks match the stated strategy, and
+when the agent overrules max-EI, does that pay off?
+
+```bash
+uv run scripts/audit_decisions.py results/decisions_arylation_gemini.jsonl --show 5
+```
+
+**Zero-shot leakage probe** — asks the model for its best pick with *zero measurements
+shown*, over many seeded random shortlists, and scores the picks against the ground-truth
+pool. Near the blind baseline = no usable prior; well above = prior knowledge (chemistry
+*or* memorisation — the next two flags separate those):
+
+```bash
+uv run scripts/leakage_probe.py --dataset arylation --agent gemini --trials 20
+uv run scripts/leakage_probe.py --dataset arylation --agent gemini --trials 20 --anonymize
+```
+
+**Name ablation & permuted yields** — two `run.py` flags that rerun the benchmark under
+counterfactual conditions:
+
+- `--anonymize` withholds reagent names/SMILES (opaque ids only). If the cold-start edge
+  disappears, it came from *named* chemistry knowledge — the claimed mechanism.
+- `--permute-yields` shuffles the yields across candidates (seeded), so chemistry no longer
+  maps to reward. The agent should fall to random; the decision log keeps both the observed
+  and the original yields, and the audit's leakage indicator flags a model that keeps
+  chasing the *original* optimum it was never shown (memorisation, not reasoning).
+
+Outputs get their own tags (`..._anon_...`, `..._permuted_...`), so they never overwrite
+the headline results.
+
+**What they showed** (Gemini 2.5 Flash, arylation — full numbers in
+[LEARNINGS.md §6–7](LEARNINGS.md)): the rationale audit found the agent follows max-EI 93%
+of the time but its rare overrules gain +9.9 yield points; the zero-shot prior is modest
+and carried by reagent names; the in-loop cold-start edge survives anonymisation (it is
+few-shot combinatorial reasoning over the init observations, not named chemistry); and
+under permuted yields everything collapses to random with a clean leakage indicator — **no
+evidence the headline result is dataset recall**.
+
 ## How the agentic loop works
 
 Each round the agentic policy:
@@ -154,10 +201,12 @@ Set `--model` to override; each round the agent returns a ranked batch of `--bat
 ## Layout
 
 ```
-run.py                     CLI: run the benchmark, write plot + summary
+run.py                     CLI: run the benchmark, write plot + summary + decision log
 scripts/get_data.py        download the reaction datasets (Buchwald + arylation)
+scripts/audit_decisions.py rationale audit: check the agent's reasoning against ground truth
+scripts/leakage_probe.py   zero-shot data-leakage probe (with/without reagent names)
 src/agentic_bo/
-  data.py                  dataset-agnostic container (features, objective, descriptions)
+  data.py                  dataset-agnostic container + permute-yields leakage check
   objective.py             synthetic MOF pool + ground-truth objective
   reactions.py             real loaders: Buchwald-Hartwig + direct arylation (named reagents)
   surrogate.py             GP surrogate + Expected Improvement
@@ -166,7 +215,9 @@ src/agentic_bo/
   experiment.py            multi-seed runs, convergence curves + per-round IMP@k
   plotting.py              convergence + regret figures
   cache.py                 persistent prompt->decision cache (free resume)
-tests/test_smoke.py        end-to-end checks (offline)
+tests/                     end-to-end + credibility-tooling checks (offline)
+.claude/skills/            repo skills: quality-gate (pre-commit) + experiment-hygiene
+.github/workflows/ci.yml   CI: ruff + pytest on 3.10 and 3.13
 LEARNINGS.md               what the experiments actually taught us
 ```
 
@@ -177,6 +228,12 @@ LEARNINGS.md               what the experiments actually taught us
   resumes for free and re-analysis (new baseline, new plot) costs no API calls.
 - The reaction datasets are downloaded, not committed (see `.gitignore`); rerun
   `scripts/get_data.py` on a fresh clone.
+- Development: `uv run pytest -q` (offline) and `uv run --group dev ruff check .` must both
+  be clean; CI enforces them. The repo also ships two [Claude Code](https://claude.com/claude-code)
+  skills in `.claude/skills/` — a pre-commit **quality-gate** (tests, lint, no secrets,
+  docs in sync, prompt/cache stability) and **experiment-hygiene** (seeds, metrics,
+  fallback checks, when results may be reported) — so agent-assisted changes are held to
+  the same standards as manual ones.
 - See **[LEARNINGS.md](LEARNINGS.md)** for the honest write-up: metric choice, dataset-
   dependence of the agent's value, reproducing Reasoning-BO, and baseline fairness.
 

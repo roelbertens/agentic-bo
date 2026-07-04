@@ -1,0 +1,45 @@
+{
+  "dataset": "Direct arylation (Shields 2021) [yields permuted]",
+  "optimum": 100.0,
+  "agent": "gemini:gemini-2.5-flash",
+  "batch_size": 3,
+  "checkpoints": [
+    "IMP@1",
+    "IMP@3",
+    "IMP@5"
+  ],
+  "methods": {
+    "random": {
+      "final_best_mean": 86.90599999999999,
+      "final_best_std": 13.732484989979053,
+      "pct_of_optimum_final": 86.90599999999999,
+      "IMP@1": 41.794,
+      "IMP@3": 46.295,
+      "IMP@5": 43.005
+    },
+    "classic_bo": {
+      "final_best_mean": 86.952,
+      "final_best_std": 1.962477006234723,
+      "pct_of_optimum_final": 86.95200000000001,
+      "IMP@1": 32.738,
+      "IMP@3": 55.044000000000004,
+      "IMP@5": 51.775999999999996
+    },
+    "agentic_bo": {
+      "final_best_mean": 78.69699999999999,
+      "final_best_std": 8.814996369823412,
+      "pct_of_optimum_final": 78.69699999999999,
+      "IMP@1": 36.943,
+      "IMP@3": 34.413,
+      "IMP@5": 42.187000000000005
+    },
+    "agentic_no_surrogate": {
+      "final_best_mean": 84.21,
+      "final_best_std": 5.173045524640199,
+      "pct_of_optimum_final": 84.21,
+      "IMP@1": 32.292,
+      "IMP@3": 43.806,
+      "IMP@5": 50.163
+    }
+  }
+}

@@ -114,6 +114,79 @@ is more useful — and more credible — than "the agent wins."
   gives a knowledge-free floor that isolates how much of the agentic result is *chemistry*
   vs *machinery*.
 
+## 6. First credibility check: auditing the agent's rationale
+
+Every decision now lands in `results/decisions_<tag>.jsonl` (shortlist + ground truth next
+to the agent's stated `strategy`/`rationale`), and because the decision cache replays the
+headline run for free, we could audit the Gemini arylation run retroactively — zero API
+calls (`scripts/audit_decisions.py`; 186 of its 200 decisions replayed from cache, the 14
+cache misses are flagged as fallbacks and excluded).
+
+What the audit says about the surrogate-coupled agent:
+
+- **It follows max-EI 93% of the time** (80/86 decisions). The "agent" is mostly
+  rubber-stamping the acquisition function — direct evidence for the honest label of §"next
+  steps" 11: this is LLM-*guided* BO, not an autonomous agent.
+- **The 6 overrules paid off**: picking against max-EI gained **+9.9 yield points** on
+  average vs the EI candidate (won 4/6). The agent's measurable added value is concentrated
+  in a handful of decisive moments — the same shape as the §4 conclusion (cold start + trap
+  escape, on par elsewhere).
+- **The stated strategy is connected to behaviour, not decoration**: 96% of "exploit"
+  decisions picked from the shortlist's top-3 by predicted mean, and "exploit" rounds
+  out-yielded "explore" rounds (56 vs 3 — though only 2 explore rounds exist to compare).
+- **Without the surrogate, the prior is directly visible**: the top pick sits at the
+  **79–82nd percentile** of its (random) shortlist by true yield, where a blind pick sits
+  at 50. Late-run "exploit" decisions (mean round 8.5) score higher than early "balance"
+  ones (52 vs 37 yield) — in-context learning on top of the prior.
+
+**Lesson:** a rationale audit is cheap insurance against confabulation, and it sharpened
+the story: the surrogate does the routine work; the model earns its keep in rare,
+high-value overrides. Whether the 79th-percentile prior is *chemistry* or *memorisation*
+is exactly what the leakage probes (below) must decide.
+
+## 7. Running the credibility checks: the edge is reasoning, not recall
+
+We ran all three checks against Gemini 2.5 Flash on the arylation task (zero-shot probe:
+40 trials; name ablation and permuted yields: the full paper protocol, 10 seeds each —
+~640 flash calls in total, cents not dollars). Together they *change the story* of §4.
+
+**Zero-shot probe** (`scripts/leakage_probe.py`) — one pick per seeded random shortlist,
+no measurements shown, scored against the ground-truth pool:
+
+| zero-shot, 40 trials | pool percentile | pick yield | picked shortlist best |
+| --- | --- | --- | --- |
+| blind pick (baseline) | 54% | 19.4 | 12% |
+| Gemini, named reagents | **67%** | **32.3** | 25% |
+| Gemini, anonymised | 57% | 25.8 | 20% |
+
+A real but modest zero-shot prior that all but evaporates when reagent names are
+withheld — so *whatever* the model knows cold, it accesses through the names.
+
+**Name ablation in the loop** (`--anonymize`, full protocol): cold start barely moves —
+no-surrogate IMP@1 goes 53.0 → 49.4 with a ±30 per-seed spread (classic BO: 36.2). The
+in-loop cold-start edge therefore does **not** come from named chemistry knowledge. The
+logged rationales show the actual mechanism: reuse components of the best of the three
+init observations and vary one factor at a time — few-shot *combinatorial* reasoning over
+the observed data, which EI over one-hot encodings cannot do at round one. Names do matter
+mid-game (no-surrogate IMP@3 drops 47.3 → 28.8; with surrogate 67.0 → 59.2), consistent
+with chemistry knowledge helping to avoid dead regions once there is history to interpret.
+The final is untouched (96% → 95%).
+
+**Permuted yields** (`--permute-yields`, full protocol): with chemistry decoupled from
+reward, every agent edge collapses to random-or-worse — cold start 53.0 → 32.3, final 96%
+→ 79%, *below* random's 87% (structured reasoning actively hurts in a structureless
+world). The leakage indicator is clean: the picks' percentile under the *original* yields
+(never shown to the model) is 56–60% vs the ~50% of a blind pick — nowhere near the
+79–82% the same agent scores when the yields are real. If the model were recalling the
+dataset, permuting the yields could not have erased that signal.
+
+**Verdict:** no evidence that the headline numbers are dataset recall. But the checks
+sharpened §4 in an unexpected way: the agent's cold-start edge is less "knows chemistry"
+than "reasons combinatorially from three data points" — a mechanism the zero-shot probe
+alone would have misattributed to chemistry knowledge, and one that should transfer to
+search spaces the model has never seen. That is a *more* encouraging result than the one
+it replaces, and we only own it because the counterfactual runs were cheap to ask for.
+
 ## Caveats / limitations
 
 - Absolute parity with the paper is not achievable: their search space is under-specified
@@ -125,20 +198,20 @@ is more useful — and more credible — than "the agent wins."
 
 ## What I'd do next
 
-Credibility checks first:
+Credibility checks — **all three are done** (tooling ships in the repo; see the README's
+credibility-checks section):
 
-1. **Data-leakage check.** Both datasets are public and plausibly in LLM training data, so
-   the cold-start win could be *recall of this dataset* rather than chemistry reasoning.
-   Probe it: ask the model zero-shot for the best conditions, and rerun with permuted yields
-   to see whether the agent "knows" answers it shouldn't.
-2. **Name-ablation prompt.** Strip reagent names from the prompt (anonymous ids or SMILES
-   only). If the cold-start advantage disappears, that cleanly proves it comes from named
-   chemistry knowledge — the claimed mechanism — and not from something else.
-3. **Rationale audit.** Every decision already returns a `strategy` and `rationale` (all
-   cached). Check they are connected to reality: do "exploit" rounds yield more than
-   "explore" rounds, do picks match their stated reasons, and do the model's chemical claims
-   hold against the full ground-truth pool? Good picks with confabulated reasons would point
-   back to leakage.
+1. **Data-leakage check.** *(done — findings in §7.)* Zero-shot probe
+   (`scripts/leakage_probe.py`) plus `run.py --permute-yields`: modest name-carried
+   zero-shot prior, everything collapses to random under permuted yields, leakage
+   indicator clean — no evidence of dataset recall.
+2. **Name-ablation prompt.** *(done — findings in §7.)* `run.py --anonymize`: the in-loop
+   cold-start edge survives without names (it is few-shot combinatorial reasoning over the
+   init observations); names matter zero-shot and mid-game.
+3. **Rationale audit.** *(done — findings in §6.)* Decisions are logged with ground truth
+   (`results/decisions_<tag>.jsonl`) and `scripts/audit_decisions.py` checks that stated
+   strategies are connected to reality. Remaining: spot-check the *chemical claims* in the
+   rationales by hand (`--show`) against the full pool.
 
 Fairness upgrades to the baseline — the same lesson as §3, on other axes:
 
