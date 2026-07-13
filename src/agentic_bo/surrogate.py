@@ -45,6 +45,38 @@ class GaussianSurrogate:
         return mean, std
 
 
+class BayesianLinear:
+    """Bayesian linear-regression surrogate with a closed-form posterior.
+
+    Same ``fit``/``predict`` interface as :class:`GaussianSurrogate`, so it drops
+    into the same BO loop. Use it when the objective is (near-)linear in engineered
+    features — e.g. the additive block/adjacency counts of a design
+    (``design.chain_features``) — where it is a far stronger, better-identified
+    surrogate than a generic GP over raw one-hots. ``weights`` exposes the posterior
+    mean coefficients, which for those features *are* the reward model (per-block and
+    per-adjacency terms), so a planner can act on them.
+    """
+
+    def __init__(self, alpha: float = 1e-2, beta: float = 1.0):
+        self.alpha = alpha              # prior precision on the weights
+        self.beta = beta                # observation-noise precision
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> BayesianLinear:
+        y = np.asarray(y, dtype=float)
+        d = X.shape[1]
+        self.cov = np.linalg.inv(self.alpha * np.eye(d) + self.beta * X.T @ X)
+        self.w = self.beta * self.cov @ X.T @ y
+        return self
+
+    def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        mean = X @ self.w
+        var = 1.0 / self.beta + np.einsum("ij,ij->i", X @ self.cov, X)
+        return mean, np.sqrt(np.maximum(var, 1e-12))
+
+    def weights(self) -> np.ndarray:
+        return self.w
+
+
 def expected_improvement(
     mean: np.ndarray, std: np.ndarray, best: float, xi: float = 0.01
 ) -> np.ndarray:

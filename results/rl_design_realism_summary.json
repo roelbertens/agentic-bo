@@ -1,0 +1,28 @@
+{
+  "mode": "realistic (noise + 3-body)",
+  "seed": 1,
+  "random": 2.662069242458014,
+  "true_optimum": 9.31683691687816,
+  "methods": {
+    "Bayesian planner (naive: pairwise, 1-block)": {
+      "final": 8.718282870275596,
+      "pct_of_optimum": 91.00563572033762,
+      "reaches_at": 1785
+    },
+    "closed-loop RL (1-block state)": {
+      "final": 8.858250918635882,
+      "pct_of_optimum": 93.10891047323848,
+      "reaches_at": 72704
+    },
+    "Bayesian planner (reality-aware: 3-body, 2-block)": {
+      "final": 9.305768016666672,
+      "pct_of_optimum": 99.83366962224639,
+      "reaches_at": 5716
+    },
+    "closed-loop RL (2-block state)": {
+      "final": 9.258005814172943,
+      "pct_of_optimum": 99.11595557375574,
+      "reaches_at": 91648
+    }
+  }
+}

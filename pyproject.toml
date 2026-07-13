@@ -44,5 +44,6 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 # Scripts and tests insert src/ on sys.path before importing the package.
 "run.py" = ["E402"]
+"rl_design.py" = ["E402"]
 "scripts/*" = ["E402"]
 "tests/*" = ["E402"]

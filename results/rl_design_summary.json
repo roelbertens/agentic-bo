@@ -1,0 +1,34 @@
+{
+  "mode": "idealised",
+  "seed": 1,
+  "random": 2.683333333333333,
+  "optimal_policy": 7.779490133333332,
+  "best_fixed_plan": 6.473333333333332,
+  "methods": {
+    "BO over plans (naive)": {
+      "final": 6.47333333333334,
+      "pct_of_optimum": 74.36976821435336,
+      "reaches_at": 940
+    },
+    "BO over plans (structured)": {
+      "final": 6.47333333333334,
+      "pct_of_optimum": 74.36976821435336,
+      "reaches_at": 800
+    },
+    "open-loop RL": {
+      "final": 6.473333333333332,
+      "pct_of_optimum": 74.3697682143532,
+      "reaches_at": 6656
+    },
+    "closed-loop RL": {
+      "final": 7.728718933333332,
+      "pct_of_optimum": 99.00373552085368,
+      "reaches_at": 19456
+    },
+    "model-based Bayesian planner": {
+      "final": 7.779490133333411,
+      "pct_of_optimum": 100.00000000000153,
+      "reaches_at": 40
+    }
+  }
+}
