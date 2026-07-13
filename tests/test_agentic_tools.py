@@ -1,4 +1,4 @@
-"""Offline tests for the genuinely-agentic tool policy (LEARNINGS next-step 11).
+"""Offline tests for the genuinely-agentic tool policy.
 
 All run through the deterministic HeuristicToolAgent, so they exercise the tool
 surface, the cross-round memory and the decision logging without any API calls."""

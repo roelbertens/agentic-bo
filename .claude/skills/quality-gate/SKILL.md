@@ -55,6 +55,6 @@ diff touches `_build_prompt` in `src/agentic_bo/agent.py`, or the
 
 - New or changed CLI flags in `run.py` / `scripts/*.py` are reflected in
   `README.md` (Quick start or the credibility-checks section).
-- Changed benchmark numbers or conclusions are reflected in `LEARNINGS.md` —
-  and only from clean runs (see the `experiment-hygiene` skill).
+- Changed benchmark numbers or conclusions are reflected in the study docs
+  (`docs/AGENTIC_BO.md` / `docs/RL.md`) — and only from clean runs (see the `experiment-hygiene` skill).
 - The README `Layout` block matches the actual file tree.

@@ -1,13 +1,14 @@
 ---
 name: experiment-hygiene
-description: Evaluation-hygiene rules for running benchmarks or reporting numbers from this repo — use whenever running run.py with an LLM agent, adding results, or updating LEARNINGS.md/README tables. Encodes the lessons this project exists to demonstrate.
+description: Evaluation-hygiene rules for running benchmarks or reporting numbers from this repo — use whenever running run.py with an LLM agent, adding results, or updating docs/README tables. Encodes the lessons this project exists to demonstrate.
 ---
 
 # Experiment hygiene
 
 This repo's headline lesson is that "agent beats BO" claims live or die on
 evaluation hygiene. Any run whose numbers might be reported must follow these
-rules — they are the distilled findings of LEARNINGS.md.
+rules — they are the distilled
+findings of docs/AGENTIC_BO.md ("What this study taught").
 
 ## Before the run
 
@@ -44,7 +45,7 @@ rules — they are the distilled findings of LEARNINGS.md.
 
 - Report **where** an advantage lives (cold start / mid-trajectory / final),
   not just that it exists, and give the multi-seed spread next to every mean.
-- New findings go to `LEARNINGS.md` in the same honest register as the
-  existing sections: what we expected, what we saw, what would falsify it.
+- New findings go to the study docs (`docs/AGENTIC_BO.md` / `docs/RL.md`) in the
+  same honest register as the existing sections: what we expected, what we saw, what would falsify it.
 - README tables only change from clean (zero-fallback), ≥10-seed runs whose
   summary JSON is committed in `results/`.

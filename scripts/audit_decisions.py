@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Audit the agent's decisions against ground truth (LEARNINGS.md next-step 3).
+"""Audit the agent's decisions against ground truth (see docs/AGENTIC_BO.md,
+the credibility-checks section).
 
 Every agentic run writes ``results/decisions_<tag>.jsonl``: one record per decision
 with the full shortlist (descriptions, true yields, surrogate stats) next to the
@@ -14,7 +15,7 @@ reasoning is connected to reality — after the fact, with zero API calls:
 * **Leakage indicator** — on ``--permute-yields`` runs the record keeps both the
   observed (permuted) and the original yields. A pick quality that stays high
   under the *original* yields, which the agent was never shown, means the model
-  recalls the dataset rather than reasoning (LEARNINGS.md next-step 1).
+  recalls the dataset rather than reasoning.
 
 Usage:
     uv run scripts/audit_decisions.py results/decisions_arylation_gemini.jsonl

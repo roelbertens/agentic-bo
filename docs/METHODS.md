@@ -1,13 +1,13 @@
 # The methods, side by side — one identical decision point
 
 This document walks **every policy through the exact same decision** so the mechanisms are
-directly comparable. It complements the results in [../LEARNINGS.md](../LEARNINGS.md) (the
+directly comparable. It complements the results in [AGENTIC_BO.md](AGENTIC_BO.md) (the
 *what*) with the *how*: what each method sees, what it computes, and what it proposes — on
 one shared scenario, with real numbers pulled from the code.
 
 > **Read this as an illustration, not a benchmark.** It is a *single* round on a *single*
 > seed. Conclusions about which method is better come from the 10-seed tables in
-> [LEARNINGS.md §8](../LEARNINGS.md); here we only make the machinery concrete. The scenario
+> [AGENTIC_BO.md](AGENTIC_BO.md); here we only make the machinery concrete. The scenario
 > was chosen because it is representative and the differences are legible.
 
 ## The shared scenario
@@ -88,7 +88,7 @@ other methods' structure is worth.
 **Mechanism.** Fit the GP, compute EI for every unmeasured candidate, take the argmax. For a
 *batch* of q > 1, after each pick it **penalizes the acquisition of nearby candidates** (a
 stand-in for qLogEI) so the batch spreads out instead of picking q near-duplicates — the fair
-batch baseline from [LEARNINGS §3](../LEARNINGS.md).
+batch baseline from [AGENTIC_BO.md](AGENTIC_BO.md).
 
 **On this scenario.** Pick 1 is the EI argmax, id 1566 (57.7 — the right call). But local
 penalization then suppresses everything near 1566 — i.e. the entire P(fur)3/KOPiv/BuCN
@@ -246,11 +246,11 @@ In every LLM method the split is the same and worth stating plainly:
 - **The single-call agent** (methods 3–4) only *ranks* a shortlist the harness built.
 - **The tool agent** (method 5) additionally decides *what to look at* — which candidates to
   score, how to search the pool, what to remember — which is the qualitative jump from
-  "LLM-guided BO" to an agent, and where the cold-start gain in [§8](../LEARNINGS.md) comes from.
+  "LLM-guided BO" to an agent, and where the cold-start gain in [AGENTIC_BO.md](AGENTIC_BO.md) comes from.
 
 ## Reproduce
 
 The traces above are regenerated from the decision cache (free, deterministic). One full
 turn-by-turn iteration for the tool agent, and every method on a fixed state, are produced by
-the same policies exercised in `run.py`; see [LEARNINGS.md §8](../LEARNINGS.md) for the
+the same policies exercised in `run.py`; see [AGENTIC_BO.md](AGENTIC_BO.md) for the
 10-seed results these single-round illustrations are drawn from.

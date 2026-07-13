@@ -130,7 +130,7 @@ class AgenticBO:
 
 
 class AgenticToolBO:
-    """Genuinely agentic policy (LEARNINGS next-step 11): the agent drives the round
+    """Genuinely agentic policy (docs/AGENTIC_BO.md): the agent drives the round
     through a tool-calling loop with a scratchpad carried across rounds.
 
     Unlike ``AgenticBO`` (one call ranking a fixed shortlist), the agent here queries

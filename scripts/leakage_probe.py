@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zero-shot data-leakage probe (LEARNINGS.md next-step 1).
+"""Zero-shot data-leakage probe (see the credibility checks in docs/AGENTIC_BO.md).
 
 Both reaction datasets are public and plausibly in LLM training data, so the
 agent's cold-start advantage could be *recall of this dataset* rather than
@@ -90,7 +90,7 @@ def main() -> None:
     p.add_argument("--k", type=int, default=8, help="shortlist size per trial")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--anonymize", action="store_true",
-                   help="withhold reagent names (name ablation, LEARNINGS next-step 2)")
+                   help="withhold reagent names (name ablation)")
     p.add_argument("--out", default="results")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args()

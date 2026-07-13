@@ -2,7 +2,7 @@
 
 The baseline "agentic" policy (``policies.AgenticBO``) is one stateless LLM call
 per round that ranks ~8 pre-digested options — honestly *LLM-guided BO*. This
-module implements LEARNINGS.md next-step 11: the model now **drives the round**
+module is the genuinely-agentic upgrade (docs/AGENTIC_BO.md): the model now **drives the round**
 through a tool-calling loop, in two phases with (optionally) a different model
 each — the interesting research question is whether a stronger *reasoner* at the
 decision step, with a cheap *worker* doing the mechanical exploration, beats the
