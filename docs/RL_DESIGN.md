@@ -3,20 +3,20 @@
 This example designs a molecular linker one building block at a time and compares
 reinforcement learning against Bayesian optimisation on the exact same task. It is the
 other regime from the pool-based BO study in this repo. There, the task was to *select*
-the next experiment from a fixed pool — a bandit, BO's home turf. Here it is to
+the next experiment from a fixed pool — a bandit, the setting BO fits. Here it is to
 *construct* a candidate through a sequence of decisions under uncertainty — a Markov
 decision process, the setting RL is built for.
 
-**One setup, realism on a dial.** There is a single task (`agentic_bo/design.py`) and a
-single set of methods (`agentic_bo/methods.py`). Two knobs turn the idealised task into
+**One setup, two realism knobs.** There is a single task (`rl_design/design.py`) and a
+single set of methods (`rl_design/methods.py`). Two knobs turn the idealised task into
 a realistic one:
 
 * `--triplet-strength` adds a **3-body reward** term a pairwise model cannot represent.
 * `--obs-noise` adds **measurement noise** to the verifier.
 
 ```bash
-uv run rl_design.py                 # idealised (knobs off)
-uv run rl_design.py --realism       # realistic  (noise + 3-body reality)
+uv run run_rl_design.py                 # idealised (knobs off)
+uv run run_rl_design.py --realism       # realistic  (noise + 3-body reality)
 ```
 
 Both settings are analysed below. The idealised one establishes the core result — the
@@ -24,11 +24,30 @@ open-vs-closed-loop ceiling, and where BO fits; the realistic one is the reality
 that shows what survives when the model can be wrong.
 
 > **A caveat on the numbers.** The task is designed, so the specific numbers — episode
-> counts, percentages, the "500×" / "16×" ratios — follow from our design choices and would
+> counts, percentages, the "500×" / "16×" ratios — follow from the design choices and would
 > move with them. What generalises is the qualitative structure: *which* methods hit a
 > ceiling, *why* (open loop, wrong model, too little state), and the direction of each
 > trade-off. The reference values (best fixed plan, optimal policy) are the one exact thing:
 > they come from dynamic programming, not training.
+
+## Terminology
+
+* **Episode (rollout)** — one complete attempt: build a full chain, receive one
+  score at the end.
+* **Verifier / reward** — the scorer of a finished chain; the number to maximise.
+* **Policy** — the rule that picks which block to install at each position.
+* **Open loop** — a plan fixed in advance and executed regardless of what happens.
+* **Closed loop** — each choice reacts to what has actually been built so far.
+* **Context** — how many previously *realised* blocks a policy looks at
+  (0 = open loop, 1 or 2 = closed loop).
+* **Model-based** — learn a model of the reward from data, then plan the best
+  policy against that model.
+* **Model-free** — learn behaviour directly from trial and error, with no model
+  of the task anywhere.
+* **Dynamic programming (DP)** — exact computation of the best possible policy
+  and its value; used as the 100% reference line, not as a competitor.
+* **% of optimum** — a method's expected result as a fraction of that exact
+  optimum.
 
 ## The task
 
@@ -98,7 +117,7 @@ model, or too little state.
 
 ---
 
-# Idealised task — `uv run rl_design.py`
+# Idealised task — `uv run run_rl_design.py`
 
 Pairwise reward, no noise. Every method is scored on the same verifier and plotted
 against episodes (verifier calls) consumed.
@@ -162,10 +181,10 @@ model-free*.
 
 ---
 
-# Realistic task — `uv run rl_design.py --realism`
+# Realistic task — `uv run run_rl_design.py --realism`
 
-The planner's 40-episode optimum should look too good, and it is: the idealised task hands it
-a perfectly specified reward and noise-free scores. `--realism` takes both away:
+The planner's 40-episode optimum rests on two idealisations: a perfectly specified reward
+and noise-free scores. `--realism` takes both away:
 
 * the reward gains a **3-body term** a pairwise model cannot represent — reaching the optimum
   now takes a 3-body model (for a planner) and a 2-block state (for any policy);
@@ -186,13 +205,13 @@ demonstrably flat, so a plateau below 100% is a real limit, not a budget artifac
 | closed-loop RL | model-free | 2 blocks | 99% | ~91,600 |
 | *true optimum (exact)* | — | 2 blocks | 100% | — |
 
-The headline: **noise slows you down, but only a wrong model or missing state caps you.** The
+The headline: **noise slows a method down; only a wrong model or missing state caps it.** The
 right-model planner still reaches the optimum — noise costs it ~140× the idealised episode
 count (5,700 vs. 40), but not the destination — and it still gets there **~16×** sooner than
 model-free RL. What noise does *not* do is rescue a misspecified model: the pairwise planner
 is capped at 91% forever.
 
-### Left panel — a wrong model or too little state caps you below the optimum
+### Left panel — a wrong model or too little state caps a method below the optimum
 
 * **The naive Bayesian planner** (pairwise model, 1-block state) climbs fast, flattens at
   **91%** by ~1,800 episodes, and stays there for the remaining ~254,000. That is **model
@@ -206,7 +225,7 @@ is capped at 91% forever.
 ### Right panel — the right model & state reach the optimum; the model buys ~16×
 
 * **The reality-aware Bayesian planner** (3-body model, 2-block state) reaches the optimum
-  (**100%**) in ~5,700 episodes. Noise makes the ride jittery and ~140× longer than the
+  (**100%**) in ~5,700 episodes. Noise makes convergence erratic and ~140× longer than the
   idealised 40 — with noise comparable to the signal, one observation says little, and
   pinning down 6³ = 216 triplet weights takes thousands — but it gets there. Noise is a
   *slowdown*, not a *cap*.
@@ -236,7 +255,7 @@ and a confident model.
 
 ---
 
-# When would you actually use RL? (and the hybrid in practice)
+# When is RL the right tool? (and the hybrid in practice)
 
 The two experiments give a decision rule, and it rarely lands on *pure model-free RL*. (The
 multipliers below are illustrative of a designed task — see the caveat above; it is the
@@ -258,8 +277,8 @@ multipliers below are illustrative of a designed task — see the caveat above; 
    choice must react to them. Only closing the loop passes the fixed-plan ceiling.
 2. **The model class cannot be made right**, so a planner is *capped*, not merely slow. That
    is the realistic result: the pairwise planner stays at 91% however many episodes (and
-   however much state) it gets, while model-free RL reaches 99% with no model at all. Mind
-   the asymmetry, though: where the model *could* be fixed, fixing it beat switching to RL
+   however much state) it gets, while model-free RL reaches 99% with no model at all. The
+   asymmetry matters: where the model *could* be fixed, fixing it beat switching to RL
    by ~16×.
 3. **A cheap, faithful verifier exists.** Model-free RL needed ~91,600 episodes here. That
    is affordable against a simulator; it is out of reach if every episode is a lab
@@ -280,30 +299,30 @@ counterpart, and the division of labour is simple:
   episodes than model-free RL under noise here, ~500× without).
 * **When the model cannot be made right → model-free RL.** It needs no model, so it is immune
   to the 91% cap that stopped the misspecified planner — but only worth it against a cheap
-  verifier or simulator: its ~91,600-episode bill is unpayable if every episode is a lab
+  verifier or simulator: its ~91,600-episode cost is out of reach if every episode is a lab
   experiment.
 
 Plus two safeguards the toy motivates but does not implement:
 
-* **Plan with the model's uncertainty, not just its best guess.** Our planner uses only the
-  posterior mean, which under noise happily exploits weights the data has not pinned down;
+* **Plan with the model's uncertainty, not just its best guess.** The planner here uses only
+  the posterior mean, which under noise exploits weights the data has not pinned down;
   practical methods act conservatively where the model admits it does not know.
 * **Keep real measurements coming in.** From inside, a capped model (the naive planner, 91%)
   looks exactly like a converged one (the reality-aware planner, 100%) — a flat curve and a
   confident model. Only fresh ground truth tells them apart.
 
 In one line: *first decide whether the problem needs closed-loop control at all; then use a
-model wherever one can be trusted, and pay model-free RL's sample bill only where it cannot.*
+model wherever one can be trusted, and pay model-free RL's sample cost only where it cannot.*
 
 ---
 
 ## Run it
 
 ```bash
-uv run rl_design.py                 # idealised: RL vs. BO, five methods, two panels
-uv run rl_design.py --realism       # realistic: noise + 3-body, the sim-to-real gap
-uv run rl_design.py --realism --triplet-strength 1.5 --obs-noise 1.0   # harder reality
-uv run pytest tests/test_design.py -q
+uv run run_rl_design.py                 # idealised: RL vs. BO, five methods, two panels
+uv run run_rl_design.py --realism       # realistic: noise + 3-body, the sim-to-real gap
+uv run run_rl_design.py --realism --triplet-strength 1.5 --obs-noise 1.0   # harder reality
+uv run pytest tests/rl_design/ -q
 ```
 
 Outputs land in `results/`: `rl_design_learning_curve.png` (idealised) or

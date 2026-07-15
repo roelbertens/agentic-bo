@@ -31,14 +31,18 @@ Zero findings. Fix code rather than adding ignores; per-file ignores in
 
 The decision cache (`.cache/`) is keyed by the **exact prompt text**. If the
 diff touches `_build_prompt` in `src/agentic_bo/agent.py`, or the
-`descriptions`/`legend` built in `src/agentic_bo/reactions.py` or
-`objective.py`:
+`descriptions`/`legend` built in `src/datasets/reactions.py` or
+`src/datasets/synthetic.py`:
 
-- `tests/test_credibility.py::test_default_prompt_format_is_stable` must be
+- `tests/agentic_bo/test_credibility.py::test_default_prompt_format_is_stable` must be
   updated deliberately, never casually — changing the default prompt silently
   turns free cache resumes into paid API calls and breaks reproduction of the
   published numbers.
 - Call this out explicitly in the commit message.
+
+The same applies to the multi-fidelity study: its LLM replay cache is keyed on
+the full request, so `INSTRUCTIONS`/`ROUND_PROMPT` in `src/multi_fidelity/agent.py`
+are pinned by `tests/multi_fidelity/test_mf_agent.py::test_prompt_format_is_stable`.
 
 ## 4. Public-repo hygiene
 
@@ -53,8 +57,9 @@ diff touches `_build_prompt` in `src/agentic_bo/agent.py`, or the
 
 ## 5. Docs stay in sync
 
-- New or changed CLI flags in `run.py` / `scripts/*.py` are reflected in
-  `README.md` (Quick start or the credibility-checks section).
+- New or changed CLI flags in the runners (`run_agentic_bo.py`, `run_rl_design.py`,
+  `run_multi_fidelity.py`) or `scripts/*.py` are reflected in `README.md` and the study docs.
 - Changed benchmark numbers or conclusions are reflected in the study docs
-  (`docs/AGENTIC_BO.md` / `docs/RL.md`) — and only from clean runs (see the `experiment-hygiene` skill).
+  (`docs/AGENTIC_BO.md` / `docs/RL_DESIGN.md` / `docs/MULTI_FIDELITY.md`) — and only from
+  clean runs (see the `experiment-hygiene` skill).
 - The README `Layout` block matches the actual file tree.

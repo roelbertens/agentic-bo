@@ -1,21 +1,22 @@
-# The methods, side by side — one identical decision point
+# Study 1's methods, side by side — one identical decision point
 
-This document walks **every policy through the exact same decision** so the mechanisms are
-directly comparable. It complements the results in [AGENTIC_BO.md](AGENTIC_BO.md) (the
-*what*) with the *how*: what each method sees, what it computes, and what it proposes — on
-one shared scenario, with real numbers pulled from the code.
+This document belongs to the agentic-BO study ([AGENTIC_BO.md](AGENTIC_BO.md)) and walks
+**every one of its policies through the exact same decision** so the mechanisms are
+directly comparable. It complements the results there (the *what*) with the *how*: what
+each method sees, what it computes, and what it proposes — on one shared scenario, with
+real numbers pulled from the code.
 
-> **Read this as an illustration, not a benchmark.** It is a *single* round on a *single*
-> seed. Conclusions about which method is better come from the 10-seed tables in
-> [AGENTIC_BO.md](AGENTIC_BO.md); here we only make the machinery concrete. The scenario
-> was chosen because it is representative and the differences are legible.
+> **An illustration, not a benchmark.** It is a *single* round on a *single* seed.
+> Conclusions about which method is better come from the 10-seed tables in
+> [AGENTIC_BO.md](AGENTIC_BO.md); this document only makes the machinery concrete. The
+> scenario was chosen because it is representative and the differences are legible.
 
 ## The shared scenario
 
 Dataset: **direct arylation** (Shields 2021) — 1,728 candidate reaction conditions
 (12 ligands × 4 bases × 4 solvents × 3 concentrations × 3 temperatures), a *deceptive*
 landscape where ~32% of conditions give ~0% yield. The task: from a finite pool, find the
-highest-yielding condition in as few experiments as possible. We freeze the state at
+highest-yielding condition in as few experiments as possible. The state is frozen at
 **round 2** (batch size q = 3, 10 rounds total), after 6 conditions have been measured:
 
 | id | condition | yield |
@@ -62,12 +63,12 @@ Each method's three picks and their true yields on this scenario:
 | **Agentic BO, no surrogate** | random shortlist (8) + history, **no stats** | one LLM call, chemistry only | 52, 3, 0 | 52.1 | 18.2 |
 | **Agentic tools** (flash+Pro) | tools over GP + **whole pool** + memory | two-phase tool loop (investigate → deliberate) | 58, 53, 40 | **57.7** | **50.3** |
 
-The headline the picture makes obvious: **four methods tie on IMP (57.7) or come close, but
-the batch quality is completely different.** On this deceptive landscape, classic BO and both
-single-call agents "spend" 2 of their 3 experiments on picks that land in ~0% conditions; the
-tool agent spends all three productively. IMP@k (per-round *best* pick) hides this; batch mean
-exposes it. This is exactly why §8 finds the tool agent wins cold-start/mid but the *final*
-metric — which rewards not wasting the budget — does not separate them as much.
+The headline: **four methods tie on IMP (57.7) or come close, but the batch quality is
+completely different.** On this deceptive landscape, classic BO and both single-call agents
+spend 2 of their 3 experiments on picks that land in ~0% conditions; the tool agent spends
+all three productively. IMP@k (per-round *best* pick) hides this; batch mean exposes it.
+This is why the tool agent wins cold-start/mid in [AGENTIC_BO.md](AGENTIC_BO.md) (lesson 8)
+while the *final* metric — which rewards not wasting the budget — separates them less.
 
 ---
 
@@ -112,7 +113,7 @@ flowchart LR
 ## 3. Agentic BO — single LLM call over a surrogate-informed shortlist
 
 **Mechanism.** The harness fits the GP and builds a **shortlist of 8**: the 6 highest-EI
-candidates plus the 2 highest-*uncertainty* ones (so exploration is always on the menu). It
+candidates plus the 2 highest-*uncertainty* ones (so exploration is always available). It
 hands the LLM the measured history and this shortlist — each candidate as chemistry text with
 `pred ± std` and `EI` — in **one call**, and the model returns a ranked pick set plus a
 `strategy` and `rationale`. The LLM never queries anything; it ranks what it is given.
@@ -134,7 +135,7 @@ hands the LLM the measured history and this shortlist — each candidate as chem
 > rationale: *"Exploit the most promising region with the highest EI, while also exploring new
 > ligands and conditions with high uncertainty to discover potentially higher optima."*
 
-It grabbed the EI winner (1566) then, true to "balance", took two higher-uncertainty
+It took the EI winner (1566) then, true to "balance", took two higher-uncertainty
 shortlist items (a different ligand, and a p-Xylene explorer) — both of which are dead. Same
 failure mode as classic BO's LP batch: the exploration slots land in ~0% conditions. It ties
 on IMP (57.7) but its batch is weak (mean 25.9).
@@ -155,7 +156,7 @@ flowchart LR
 candidates presented as **descriptions only** — no GP mean/std/EI. This isolates what the
 model's own chemistry knowledge contributes, with the surrogate removed.
 
-**The random shortlist it was handed** (no numbers to lean on):
+**The random shortlist it was handed** (no surrogate numbers):
 
 ```
 763  PPhtBu2 / CsOPiv / p-Xylene, 0.153 M, 105 C      644  tBPh-CPhos / CsOPiv / BuOAc, 0.153 M, 90 C
@@ -252,5 +253,5 @@ In every LLM method the split is the same and worth stating plainly:
 
 The traces above are regenerated from the decision cache (free, deterministic). One full
 turn-by-turn iteration for the tool agent, and every method on a fixed state, are produced by
-the same policies exercised in `run.py`; see [AGENTIC_BO.md](AGENTIC_BO.md) for the
+the same policies exercised in `run_agentic_bo.py`; see [AGENTIC_BO.md](AGENTIC_BO.md) for the
 10-seed results these single-round illustrations are drawn from.

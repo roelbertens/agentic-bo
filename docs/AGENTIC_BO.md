@@ -7,7 +7,7 @@ reproduces a published LLM-BO result — see the [headline result](#headline-res
 
 Five policies compete on the same task, using as few (simulated) experiments as possible.
 For a step-by-step, side-by-side walkthrough of *how each one decides* on one identical
-scenario (with real numbers and a visual), see **[docs/METHODS.md](METHODS.md)**.
+scenario (with real numbers and a visual), see **[docs/AGENTIC_BO_METHODS.md](AGENTIC_BO_METHODS.md)**.
 
 | Policy | What it does |
 | --- | --- |
@@ -19,6 +19,27 @@ scenario (with real numbers and a visual), see **[docs/METHODS.md](METHODS.md)**
 The point is not a new method. It is an honest, small-scale answer to a practical question —
 *does putting an LLM in the BO loop actually help, and when?* — with the evaluation hygiene
 (fair baseline, ablation, multi-seed spread) needed to trust the answer.
+
+## Terminology
+
+* **Pool** — the finite list of candidate experiments (e.g. reaction conditions);
+  the task is to find the best one in as few tries as possible.
+* **Yield** — the measured outcome of one experiment; the number being maximised.
+* **Surrogate (GP)** — a statistical model fit to the measurements so far; for
+  every untried candidate it predicts a value and how uncertain that prediction is.
+* **EI (Expected Improvement)** — a score combining prediction and uncertainty:
+  how much a candidate can be expected to beat the current best. Classic BO
+  measures the highest-EI candidate next.
+* **Explore vs. exploit** — measure uncertain candidates to learn more, or
+  promising ones to score now.
+* **Round, batch size q** — each round proposes q candidates, which are then
+  measured together.
+* **IMP@k** — the quality of round k's proposals: the best yield in that
+  round's batch.
+* **Cold start** — the first rounds, when almost nothing is measured yet and the
+  surrogate knows little.
+* **Seed** — the random starting condition of a run; runs repeat over several
+  seeds and results are means over them.
 
 ## Three datasets — increasing in how much an agent can help
 
@@ -48,16 +69,16 @@ Because both datasets are finite with known ground truth, the pool optimum is ex
 ### Three things that make the comparison *fair*
 
 Good reactions are dense enough that best-of-N saturates — even random reaches ~89% of the
-optimum, so the *final* metric barely separates methods. Getting a trustworthy comparison
-took three corrections:
+optimum, so the *final* metric barely separates methods. A trustworthy comparison needs
+three corrections:
 
 - **IMP@k, not final.** With `--batch-size > 1` the summary reports **IMP@k** = the per-round
   *proposal quality* (best yield in round k's batch, non-cumulative), the metric Reasoning-BO
   (2025) uses. That is where cold-start prior knowledge shows up; the final saturates.
 - **A fair batch baseline.** Classic BO batches via **local penalization** (spread picks out),
-  not greedy top-q EI (near-duplicate picks that get stuck). The weak version let *random* beat
-  classic BO on the final metric and cost it six IMP@5 points (64.2 → 70.0 once fixed) — a
-  baseline artifact that manufactured most of the agent's apparent mid-game lead.
+  not greedy top-q EI (near-duplicate picks that get stuck). The greedy batch costs classic BO
+  six IMP@5 points (64.2 vs 70.0) and lets *random* beat it on the final metric — a baseline
+  artifact that produced most of the agent's apparent mid-game lead.
 - **Multiple seeds.** 10 seeds; the gaps sit inside ±7–13, so single-run "leads" are treated
   as noise until they survive the spread.
 
@@ -73,35 +94,36 @@ Uses [uv](https://docs.astral.sh/uv/); no uv? `pip install -e ".[gemini]"` works
 uv sync                             # offline runs; add --extra gemini for the LLM agent
 
 # Fast, fully offline — heuristic agent stands in for the LLM (no API key):
-uv run run.py                       # synthetic MOF task
+uv run run_agentic_bo.py                       # synthetic MOF task
 uv run scripts/get_data.py          # fetch the reaction datasets (~2 MB, once)
-uv run run.py --dataset buchwald    # real reaction task, heuristic baselines
+uv run run_agentic_bo.py --dataset buchwald    # real reaction task, heuristic baselines
 
 # The real agentic loop on the reaction task, with Gemini:
 export GEMINI_API_KEY=...
-uv run run.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
+uv run run_agentic_bo.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
 
 # The fair "can the agent beat classic BO?" test — per-substrate + cold start:
-uv run run.py --dataset buchwald --per-substrate --substrates 4 \
+uv run run_agentic_bo.py --dataset buchwald --per-substrate --substrates 4 \
               --n-init 3 --budget 12 --agent gemini --seeds 3 --verbose
 
 # ...or with Claude (--extra claude, --agent claude, ANTHROPIC_API_KEY).
 
 # Reproducing Reasoning-BO's Direct Arylation protocol (batch 3, IMP@k metric):
-uv run run.py --dataset arylation --agent gemini \
+uv run run_agentic_bo.py --dataset arylation --agent gemini \
               --n-init 3 --budget 30 --batch-size 3 --seeds 10 --verbose
 ```
 
 **Comparing to the literature.** With `--batch-size > 1` the summary reports **IMP@k**
 (the per-round *proposal quality* — the best yield among round k's batch, non-cumulative),
-matching the metric in Reasoning-BO (2025). As a validation, our random search reproduces
-their random baseline closely (IMP@1 ≈ 30 vs 29, including the non-monotonic dip). Note the
+matching the metric in Reasoning-BO (2025). As a validation, this repo's random search
+reproduces their random baseline closely (IMP@1 ≈ 30 vs 29, including the non-monotonic
+dip). Note the
 final best-so-far converges high for every method (their Log-AUC column agrees) — the
 signal lives in the early IMP@k, not the final. The agentic policy matches their
 Reasoning-BO row at IMP@3 (67.0 vs 66.6) and IMP@5 (71.7 vs 71.2), though not at IMP@1
 (41.9 vs 60.1 — round-one behaviour is not fully matched). Exact numeric parity is limited
 by their under-specified search space (likely continuous concentration/temperature vs our
-discrete 1728-grid) and their qLogEI vs our local-penalization batch, so compare
+discrete 1728-grid) and their qLogEI vs the local-penalization batch here, so compare
 *patterns*, not decimals. (The synthetic MOF objective, for its part, is physically
 motivated but not real data.)
 
@@ -125,15 +147,15 @@ Gemini 2.5 Flash agent, paper protocol (n_init 3, batch 3, 30 experiments, 10 se
 | *paper — Vanilla BO* | 43.6 | 45.2 | 55.9 | — |
 | *paper — Reasoning-BO* | 60.1 | 66.6 | 71.2 | — |
 
-Read honestly:
+Three readings:
 
 - **Cold start (IMP@1) — real agent win.** Chemistry-only (no surrogate) scores 53 vs BO's 36:
   it picks good ligand/base/solvent conditions from round one, which a GP-from-scratch cannot.
 - **Final — real agent win.** 96% vs 87%: classic BO over-exploits and caps out on this
   deceptive landscape (32% of conditions are dead); the agent escapes the trap.
-- **Mid-trajectory (IMP@5) — a tie** against the *fair* baseline (71.7 vs 70.0). Against a weak
-  greedy-EI batch the agent looked far ahead; most of that gap was the baseline. Scrutinising
-  the random result exposed it.
+- **Mid-trajectory (IMP@5) — a tie** against the *fair* baseline (71.7 vs 70.0). Against the
+  weak greedy-EI batch the agent led by six points; that gap belonged to the baseline, not
+  the agent.
 
 On the **easy** `buchwald` task the opposite holds — the same agent, opposite conclusions
 (Buchwald numbers from the per-substrate protocol, `--per-substrate`):
@@ -145,8 +167,8 @@ On the **easy** `buchwald` task the opposite holds — the same agent, opposite 
 
 On a dense landscape greedy EI is already near-optimal, so letting the LLM overrule it only
 adds noise; on a deceptive one the surrogate's EI signal and the agent's prior complement
-each other. **Whether an LLM helps BO is dataset-dependent**; benchmark on the regime that
-matches your problem.
+each other. **Whether an LLM helps BO is dataset-dependent**; the informative benchmark is
+the regime that matches the target problem.
 
 ## Credibility checks — is the agent's edge real?
 
@@ -174,7 +196,7 @@ uv run scripts/leakage_probe.py --dataset arylation --agent gemini --trials 20
 uv run scripts/leakage_probe.py --dataset arylation --agent gemini --trials 20 --anonymize
 ```
 
-**Name ablation & permuted yields** — two `run.py` flags that rerun the benchmark under
+**Name ablation & permuted yields** — two `run_agentic_bo.py` flags that rerun the benchmark under
 counterfactual conditions:
 
 - `--anonymize` withholds reagent names/SMILES (opaque ids only). If the cold-start edge
@@ -204,8 +226,8 @@ the full 10-seed protocol):
   | Gemini, named reagents | **67%** | **32.3** |
   | Gemini, anonymised | 57% | 25.8 |
 
-  A real but modest prior that mostly evaporates without reagent names — whatever the model
-  knows cold, it accesses through the names.
+  A real but modest prior that largely disappears without reagent names — the zero-shot
+  knowledge is accessed through the names.
 - **Name ablation in the loop:** the cold-start edge *survives* anonymisation (no-surrogate
   IMP@1 53.0 → 49.4; classic BO sits at 36.2), so it is **few-shot combinatorial reasoning
   over the init observations, not named chemistry** — the logged rationales show it reusing
@@ -235,7 +257,7 @@ export LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=...
 export LANGFUSE_HOST=http://localhost:3000    # self-hosted; omit for Langfuse cloud
 
 # Live: trace a run as it happens (adds per-decision LLM latency):
-uv run run.py --dataset arylation --agent gemini --batch-size 3 --langfuse
+uv run run_agentic_bo.py --dataset arylation --agent gemini --batch-size 3 --langfuse
 
 # Backfill: push an existing decision log — cached runs included, zero API calls:
 uv run scripts/push_to_langfuse.py results/decisions_arylation_gemini.jsonl
@@ -267,18 +289,19 @@ cheap worker exploring) beat the single-call agent?** Route the two steps indepe
 
 ```bash
 # Tool-agency alone (same model both phases) vs a stronger reasoner at the decision step:
-uv run run.py --dataset arylation --agent gemini --methods classic_bo agentic_bo agentic_tools \
+uv run run_agentic_bo.py --dataset arylation --agent gemini --methods classic_bo agentic_bo agentic_tools \
               --worker-model gemini-2.5-flash --reasoner-model gemini-2.5-flash \
               --n-init 3 --budget 30 --batch-size 3 --seeds 10
-uv run run.py --dataset arylation --agent gemini --methods agentic_tools \
+uv run run_agentic_bo.py --dataset arylation --agent gemini --methods agentic_tools \
               --worker-model gemini-2.5-flash --reasoner-model gemini-2.5-pro \
               --n-init 3 --budget 30 --batch-size 3 --seeds 10
 ```
 
 The batch size `q` and total budget stay **fixed** for a fair head-to-head with
-`agentic_bo` (the §3 lesson again); the agent may *state* a preferred batch size or a
-"stop now" — logged for analysis, not acted on. Runs are tagged by routing
-(`..._tools_flash-flash_...`, `..._tools_flash-pro_...`) so configs never clobber. Offline,
+`agentic_bo` (lesson 3 under [What this study taught](#what-this-study-taught)); the agent
+may *state* a preferred batch size or a "stop now" — logged for analysis, not acted on.
+Runs are tagged by routing (`..._tools_flash-flash_...`, `..._tools_flash-pro_...`) so
+configs never overwrite each other. Offline,
 `--agent heuristic` uses a deterministic tool agent (the CI path and knowledge-free floor).
 
 **Does it help?** (arylation, 10 seeds; final-metric differences among the agentic variants
@@ -298,7 +321,7 @@ hybrid: agentic tool loop for cold start, plain agent / classic BO for late conv
 
 ## What this study taught
 
-1. **The metric decides the story.** Under a tight budget on a forgiving pool, final
+1. **The metric decides the conclusion.** Under a tight budget on a forgiving pool, final
    best-so-far saturates — random search reaches ~89% of the optimum — so it barely
    separates methods. Early-round proposal quality (IMP@k) is where the differences live.
    Pick the metric that discriminates in the regime that matters, not the one that is
