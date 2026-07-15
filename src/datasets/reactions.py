@@ -36,7 +36,7 @@ import os
 
 import numpy as np
 
-from .data import Dataset
+from .base import Dataset
 
 _CATEGORIES = ["Ligand", "Base", "Additive", "Aryl halide"]
 _YIELD = "Output"

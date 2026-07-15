@@ -10,9 +10,9 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from rl_design import _smooth, plateau, reaches_at
+from run_rl_design import _smooth, plateau, reaches_at
 
 
 def test_smooth_preserves_length_and_constants():

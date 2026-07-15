@@ -5,24 +5,24 @@ import sys
 import numpy as np
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from agentic_bo import objective, reactions
 from agentic_bo.agent import HeuristicAgent
 from agentic_bo.experiment import run_method, run_single
 from agentic_bo.policies import AgenticBO, ClassicBO, RandomPolicy
+from datasets import reactions, synthetic
 
 
 def test_dataset_shapes():
-    ds = objective.sample_pool(n=100, seed=0)
+    ds = synthetic.sample_pool(n=100, seed=0)
     assert ds.X.shape == (100, 5)
     assert ds.y.shape == (100,)
     # sampling is reproducible
-    assert np.allclose(ds.y, objective.sample_pool(n=100, seed=0).y)
+    assert np.allclose(ds.y, synthetic.sample_pool(n=100, seed=0).y)
 
 
 def test_curves_are_monotone_and_bounded():
-    ds = objective.sample_pool(n=200, seed=0)
+    ds = synthetic.sample_pool(n=200, seed=0)
     for policy in [RandomPolicy(), ClassicBO(), AgenticBO(HeuristicAgent())]:
         curve = run_single(ds, policy, seed=1, budget=8, n_init=4)
         assert len(curve) == 12
@@ -31,7 +31,7 @@ def test_curves_are_monotone_and_bounded():
 
 
 def test_bo_beats_random_on_average():
-    ds = objective.sample_pool(n=400, seed=0)
+    ds = synthetic.sample_pool(n=400, seed=0)
     seeds = range(6)
     rand = run_method(ds, lambda: RandomPolicy(), "random", seeds, 15, 5, verbose=False)
     bo = run_method(ds, lambda: ClassicBO(), "classic_bo", seeds, 15, 5, verbose=False)
@@ -39,7 +39,7 @@ def test_bo_beats_random_on_average():
 
 
 def test_surrogate_helps_the_agent():
-    ds = objective.sample_pool(n=400, seed=0)
+    ds = synthetic.sample_pool(n=400, seed=0)
     seeds = range(6)
     with_surr = run_method(ds, lambda: AgenticBO(HeuristicAgent(), use_surrogate=True),
                            "agentic_bo", seeds, 15, 5, verbose=False)
@@ -49,7 +49,7 @@ def test_surrogate_helps_the_agent():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "data",
+    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "data",
                                     "buchwald_hartwig.xlsx")),
     reason="run scripts/get_data.py to fetch the Buchwald-Hartwig dataset",
 )
@@ -64,7 +64,7 @@ def test_buchwald_loader_and_run():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "data",
+    not os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "data",
                                     "direct_arylation", "experiment_index.csv")),
     reason="run scripts/get_data.py to fetch the direct-arylation dataset",
 )

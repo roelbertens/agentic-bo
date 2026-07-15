@@ -33,8 +33,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from agentic_bo import reactions  # noqa: E402
 from agentic_bo.cache import PromptCache  # noqa: E402
+from datasets import reactions  # noqa: E402
 
 
 def build_probe_prompt(dataset, ids: list) -> str:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .data import Dataset
+from datasets import Dataset
 
 
 @dataclass

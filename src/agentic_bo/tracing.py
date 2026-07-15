@@ -13,13 +13,13 @@ Design goals, in order:
 
 Mapping onto Langfuse concepts:
 
-* session  = one ``run.py`` invocation (the results tag, e.g. ``arylation_gemini``)
+* session  = one ``run_agentic_bo.py`` invocation (the results tag, e.g. ``arylation_gemini``)
 * trace    = one campaign (policy x seed), e.g. ``agentic_bo seed 3``
 * span     = one decision round (input: shortlist + surrogate stats;
              output: picks, strategy, rationale)
 * scores   = per-round quality/behaviour metrics attached to the round span
 
-Enable with ``run.py --langfuse`` (live) or backfill any existing decision log
+Enable with ``run_agentic_bo.py --langfuse`` (live) or backfill any existing decision log
 with ``scripts/push_to_langfuse.py``. Requires ``uv sync --extra eval`` and
 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY (+ LANGFUSE_HOST for self-hosted).
 """

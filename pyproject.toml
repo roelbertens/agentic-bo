@@ -20,8 +20,10 @@ dependencies = [
 # LLM agent backends (only the one you use is needed):
 gemini = ["google-genai>=1.0"]   # --agent gemini
 claude = ["anthropic>=0.40"]     # --agent claude
-# Structured eval/tracing stack (run.py --langfuse, scripts/push_to_langfuse.py):
+# Structured eval/tracing stack (run_agentic_bo.py --langfuse, scripts/push_to_langfuse.py):
 eval = ["langfuse>=3.0"]
+# The multi-fidelity experiment's agent framework (run_multi_fidelity.py --agent gemini):
+mf = ["pydantic-ai-slim[google]>=1.0"]
 
 [dependency-groups]
 dev = ["pytest>=7.0", "ruff>=0.4"]
@@ -31,7 +33,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agentic_bo"]
+packages = ["src/datasets", "src/agentic_bo", "src/rl_design", "src/multi_fidelity"]
 
 [tool.ruff]
 line-length = 100
@@ -42,8 +44,9 @@ target-version = "py310"
 select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
-# Scripts and tests insert src/ on sys.path before importing the package.
-"run.py" = ["E402"]
-"rl_design.py" = ["E402"]
+# Scripts and tests insert src/ on sys.path before importing the packages.
+"run_agentic_bo.py" = ["E402"]
+"run_rl_design.py" = ["E402"]
+"run_multi_fidelity.py" = ["E402"]
 "scripts/*" = ["E402"]
-"tests/*" = ["E402"]
+"tests/**" = ["E402"]

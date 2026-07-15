@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .data import Dataset
+from .base import Dataset
 
 # name, physical lower bound, physical upper bound, unit
 DESCRIPTORS = [

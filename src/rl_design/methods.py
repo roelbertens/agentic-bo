@@ -1,5 +1,5 @@
 """The methods compared on the linker-design task — one set, used at every realism
-setting (``rl_design.py`` runs them with or without noise + a 3-body reward).
+setting (``run_rl_design.py`` runs them with or without noise + a 3-body reward).
 
 * ``train_policy_curve`` — train a context-``c`` REINFORCE policy, recording its exact
   value against episodes seen (open loop = context 0, closed loop = 1 or 2).

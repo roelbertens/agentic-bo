@@ -4,15 +4,15 @@
 Examples
 --------
 # Fast, offline, no API key (heuristic agent stands in for the LLM):
-    python run.py
+    python run_agentic_bo.py
 
 # Real reaction dataset where an LLM's prior knowledge can help, with Gemini:
     export GEMINI_API_KEY=...
-    python run.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
+    python run_agentic_bo.py --dataset buchwald --agent gemini --seeds 3 --budget 20 --verbose
 
 # Same task with Claude instead:
     export ANTHROPIC_API_KEY=...
-    python run.py --dataset buchwald --agent claude --seeds 3
+    python run_agentic_bo.py --dataset buchwald --agent claude --seeds 3
 """
 from __future__ import annotations
 
@@ -28,10 +28,10 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from agentic_bo import objective, plotting, reactions
-from agentic_bo.data import permute_yields
+from agentic_bo import plotting
 from agentic_bo.experiment import run_method, run_method_per_substrate
 from agentic_bo.policies import AgenticBO, AgenticToolBO, ClassicBO, RandomPolicy
+from datasets import permute_yields, reactions, synthetic
 
 # "agentic_tools" (the genuinely-agentic tool loop) is opt-in: not in the default set,
 # since it needs a tool-capable agent (heuristic offline, or gemini with an API key).
@@ -73,7 +73,7 @@ DEFAULT_MODEL = {"gemini": "gemini-2.5-flash", "claude": "claude-opus-4-8", "heu
 
 def load_dataset(args):
     if args.dataset == "mof":
-        return objective.sample_pool(n=args.pool_size, seed=args.pool_seed)
+        return synthetic.sample_pool(n=args.pool_size, seed=args.pool_seed)
     if args.dataset == "buchwald":
         return reactions.load_buchwald_hartwig(subsample=args.subsample, seed=args.pool_seed,
                                                anonymize=args.anonymize)

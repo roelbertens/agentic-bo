@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import numpy as np
 
+from datasets import Dataset
+
 from . import tracing
 from .agent import DecisionContext
 from .agentic import BOEnvironment, _round_context
-from .data import Dataset
 from .surrogate import GaussianSurrogate, expected_improvement
 
 

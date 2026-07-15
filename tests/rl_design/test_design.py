@@ -9,12 +9,12 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from agentic_bo.design import DesignTask, chain_features
-from agentic_bo.methods import bo_on_plans, model_based_planner, train_policy_curve
-from agentic_bo.reinforce import FixedPlan, Policy
-from agentic_bo.surrogate import BayesianLinear
+from rl_design.design import DesignTask, chain_features
+from rl_design.methods import bo_on_plans, model_based_planner, train_policy_curve
+from rl_design.reinforce import FixedPlan, Policy
+from rl_design.surrogate import BayesianLinear
 
 # --- environment ------------------------------------------------------------------
 

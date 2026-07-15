@@ -8,16 +8,15 @@ import sys
 import numpy as np
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
 
-from agentic_bo import objective, reactions
 from agentic_bo.agent import DecisionContext, HeuristicAgent, _build_prompt
-from agentic_bo.data import permute_yields
 from agentic_bo.experiment import run_single
 from agentic_bo.policies import AgenticBO
+from datasets import permute_yields, reactions, synthetic
 
-REPO = os.path.join(os.path.dirname(__file__), "..")
+REPO = os.path.join(os.path.dirname(__file__), "..", "..")
 BUCHWALD = os.path.join(REPO, "data", "buchwald_hartwig.xlsx")
 ARYLATION = os.path.join(REPO, "data", "direct_arylation", "experiment_index.csv")
 
@@ -28,7 +27,7 @@ needs_arylation = pytest.mark.skipif(
 
 
 def test_permute_yields_is_seeded_and_keeps_the_pool():
-    ds = objective.sample_pool(n=50, seed=0)
+    ds = synthetic.sample_pool(n=50, seed=0)
     p1 = permute_yields(ds, seed=3)
     p2 = permute_yields(ds, seed=3)
     assert np.array_equal(p1.y, p2.y)                     # reproducible
@@ -40,7 +39,7 @@ def test_permute_yields_is_seeded_and_keeps_the_pool():
 
 
 def test_agentic_run_writes_an_auditable_decision_log():
-    ds = permute_yields(objective.sample_pool(n=100, seed=0), seed=1)
+    ds = permute_yields(synthetic.sample_pool(n=100, seed=0), seed=1)
     agent = HeuristicAgent()
     run_single(ds, AgenticBO(agent), seed=0, budget=6, n_init=3, batch_size=2)
     log = agent.decision_log
@@ -58,7 +57,7 @@ def test_agentic_run_writes_an_auditable_decision_log():
 
 
 def test_audit_script_reports_on_a_decision_log(tmp_path):
-    ds = permute_yields(objective.sample_pool(n=100, seed=0), seed=1)
+    ds = permute_yields(synthetic.sample_pool(n=100, seed=0), seed=1)
     agent = HeuristicAgent()
     run_single(ds, AgenticBO(agent), seed=0, budget=6, n_init=3, batch_size=2)
     log_path = tmp_path / "decisions.jsonl"
@@ -98,7 +97,7 @@ def test_arylation_anonymize_uses_opaque_ids():
 def test_zero_shot_probe_helpers_are_deterministic():
     from leakage_probe import build_probe_prompt, sample_shortlist, score_pick
 
-    ds = objective.sample_pool(n=80, seed=0)
+    ds = synthetic.sample_pool(n=80, seed=0)
     ids = sample_shortlist(ds.n, 5, [0, 7])
     assert ids == sample_shortlist(ds.n, 5, [0, 7]) and len(set(ids)) == 5
     prompt = build_probe_prompt(ds, ids)

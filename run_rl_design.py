@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Design molecular linkers on one task — RL vs. BO — with realism as a dial.
 
-One setup (``agentic_bo/design.py``): a stochastic sequential MDP where a linker is
+One setup (``rl_design/design.py``): a stochastic sequential MDP where a linker is
 built block by block and a verifier scores the realised chain. The same methods
-(``agentic_bo/methods.py``) run at two settings of the reality knobs:
+(``rl_design/methods.py``) run at two settings of the reality knobs:
 
 * **idealised** (default) — pairwise reward, no noise. Shows the open-vs-closed-loop
   ceiling and where BO fits: fixed-plan optimisers (BO, open-loop RL) are capped at the
@@ -37,8 +37,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from agentic_bo.design import DesignTask
-from agentic_bo.methods import bo_on_plans, model_based_planner, train_policy_curve
+from rl_design.design import DesignTask
+from rl_design.methods import bo_on_plans, model_based_planner, train_policy_curve
 
 _IDEAL_COLORS = {"BO over plans (naive)": "#c5b0d5", "BO over plans (structured)": "#1f77b4",
                  "open-loop RL": "#ff7f0e", "closed-loop RL": "#2ca02c",

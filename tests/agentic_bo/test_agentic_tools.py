@@ -7,14 +7,13 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from agentic_bo import objective
 from agentic_bo.agentic import BOEnvironment, HeuristicToolAgent
-from agentic_bo.data import permute_yields
 from agentic_bo.experiment import run_method, run_single
 from agentic_bo.policies import AgenticBO, AgenticToolBO
 from agentic_bo.surrogate import GaussianSurrogate, expected_improvement
+from datasets import permute_yields, synthetic
 
 
 def _env(ds, evaluated, y_obs, memory="", seed=0):
@@ -26,7 +25,7 @@ def _env(ds, evaluated, y_obs, memory="", seed=0):
 
 
 def test_environment_tools_return_valid_candidates():
-    ds = objective.sample_pool(n=120, seed=0)
+    ds = synthetic.sample_pool(n=120, seed=0)
     evaluated, y_obs = [0, 1, 2, 3], list(ds.y[[0, 1, 2, 3]])
     env = _env(ds, evaluated, y_obs)
 
@@ -45,14 +44,14 @@ def test_environment_tools_return_valid_candidates():
 
 
 def test_search_match_filters_descriptions():
-    ds = objective.sample_pool(n=200, seed=0)
+    ds = synthetic.sample_pool(n=200, seed=0)
     env = _env(ds, [0, 1, 2], list(ds.y[[0, 1, 2]]))
     hits = env.search_candidates("match", match=ds.descriptions[50].split(",")[0], limit=5)
     assert hits and all(ds.descriptions[50].split(",")[0] in ds.descriptions[c["id"]] for c in hits)
 
 
 def test_heuristic_tool_agent_drives_a_round():
-    ds = objective.sample_pool(n=150, seed=0)
+    ds = synthetic.sample_pool(n=150, seed=0)
     env = _env(ds, [0, 1, 2, 3], list(ds.y[[0, 1, 2, 3]]))
     dec = HeuristicToolAgent().propose_round(env, "round 1 ... remaining ...", q=3)
     assert len(dec.picks) == 3 and len(set(dec.picks)) == 3
@@ -62,7 +61,7 @@ def test_heuristic_tool_agent_drives_a_round():
 
 
 def test_memory_persists_across_rounds():
-    ds = objective.sample_pool(n=150, seed=0)
+    ds = synthetic.sample_pool(n=150, seed=0)
     policy = AgenticToolBO(HeuristicToolAgent())
     assert policy.memory == ""
     run_single(ds, policy, seed=0, budget=6, n_init=3, batch_size=2)
@@ -71,7 +70,7 @@ def test_memory_persists_across_rounds():
 
 
 def test_tool_policy_curve_is_valid_and_logs():
-    ds = objective.sample_pool(n=150, seed=0)
+    ds = synthetic.sample_pool(n=150, seed=0)
     agent = HeuristicToolAgent()
     policy = AgenticToolBO(agent)
     curve = run_single(ds, policy, seed=1, budget=8, n_init=4, batch_size=2)
@@ -84,7 +83,7 @@ def test_tool_policy_curve_is_valid_and_logs():
 
 
 def test_permuted_run_keeps_y_true_in_the_tool_log():
-    ds = permute_yields(objective.sample_pool(n=120, seed=0), seed=1)
+    ds = permute_yields(synthetic.sample_pool(n=120, seed=0), seed=1)
     agent = HeuristicToolAgent()
     run_single(ds, AgenticToolBO(agent), seed=0, budget=4, n_init=3, batch_size=2)
     for entry in agent.decision_log[0]["shortlist"]:
@@ -97,7 +96,7 @@ def test_tool_agent_is_at_least_competitive_offline():
     agent on the smooth synthetic task (same deterministic UCB decision underneath)."""
     from agentic_bo.agent import HeuristicAgent
 
-    ds = objective.sample_pool(n=400, seed=0)
+    ds = synthetic.sample_pool(n=400, seed=0)
     seeds = range(6)
     single = run_method(ds, lambda: AgenticBO(HeuristicAgent()), "agentic_bo", seeds,
                         15, 5, verbose=False)
