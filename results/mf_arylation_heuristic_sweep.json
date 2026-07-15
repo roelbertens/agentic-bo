@@ -1,0 +1,85 @@
+{
+  "config": {
+    "dataset": "arylation",
+    "rho": 0.8,
+    "cost_lf": 1.0,
+    "cost_hf": 10.0,
+    "cost_budget": 200.0,
+    "n_init": 3,
+    "seeds": 16,
+    "methods": [
+      "random_hf",
+      "classic_bo_hf",
+      "two_stage",
+      "mf_bo",
+      "agentic_mf"
+    ],
+    "agent": "heuristic",
+    "model": "gemini-2.5-flash",
+    "no_cache": false,
+    "sweep": true,
+    "pool_size": 600,
+    "pool_seed": 0,
+    "subsample": null,
+    "out": "results",
+    "verbose": false,
+    "dataset_n": 1728
+  },
+  "sweep": {
+    "random_hf": {
+      "rho=0.9,ratio=5": 90.31625,
+      "rho=0.9,ratio=10": 81.83624999999999,
+      "rho=0.9,ratio=20": 56.0075,
+      "rho=0.6,ratio=5": 90.31625,
+      "rho=0.6,ratio=10": 81.83624999999999,
+      "rho=0.6,ratio=20": 56.0075,
+      "rho=0.3,ratio=5": 90.31625,
+      "rho=0.3,ratio=10": 81.83624999999999,
+      "rho=0.3,ratio=20": 56.0075
+    },
+    "classic_bo_hf": {
+      "rho=0.9,ratio=5": 88.34562500000001,
+      "rho=0.9,ratio=10": 73.955625,
+      "rho=0.9,ratio=20": 57.953125,
+      "rho=0.6,ratio=5": 88.34562500000001,
+      "rho=0.6,ratio=10": 73.955625,
+      "rho=0.6,ratio=20": 57.953125,
+      "rho=0.3,ratio=5": 88.34562500000001,
+      "rho=0.3,ratio=10": 73.955625,
+      "rho=0.3,ratio=20": 57.953125
+    },
+    "two_stage": {
+      "rho=0.9,ratio=5": 92.264375,
+      "rho=0.9,ratio=10": 90.776875,
+      "rho=0.9,ratio=20": 88.699375,
+      "rho=0.6,ratio=5": 91.94312500000001,
+      "rho=0.6,ratio=10": 89.88187500000001,
+      "rho=0.6,ratio=20": 86.72749999999999,
+      "rho=0.3,ratio=5": 90.186875,
+      "rho=0.3,ratio=10": 88.34125,
+      "rho=0.3,ratio=20": 81.35499999999999
+    },
+    "mf_bo": {
+      "rho=0.9,ratio=5": 92.731875,
+      "rho=0.9,ratio=10": 82.895625,
+      "rho=0.9,ratio=20": 67.704375,
+      "rho=0.6,ratio=5": 92.22562500000001,
+      "rho=0.6,ratio=10": 78.86437500000001,
+      "rho=0.6,ratio=20": 62.44125,
+      "rho=0.3,ratio=5": 86.965,
+      "rho=0.3,ratio=10": 80.82249999999999,
+      "rho=0.3,ratio=20": 61.549375
+    },
+    "agentic_mf": {
+      "rho=0.9,ratio=5": 93.210625,
+      "rho=0.9,ratio=10": 82.449375,
+      "rho=0.9,ratio=20": 58.075,
+      "rho=0.6,ratio=5": 96.18375,
+      "rho=0.6,ratio=10": 84.32124999999999,
+      "rho=0.6,ratio=20": 67.540625,
+      "rho=0.3,ratio=5": 90.2725,
+      "rho=0.3,ratio=10": 74.48249999999999,
+      "rho=0.3,ratio=20": 58.574374999999996
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "config": {
+    "dataset": "arylation",
+    "rho": 0.3,
+    "cost_lf": 1.0,
+    "cost_hf": 10.0,
+    "cost_budget": 200.0,
+    "n_init": 3,
+    "seeds": 4,
+    "methods": [
+      "agentic_mf"
+    ],
+    "agent": "gemini",
+    "model": "gemini-2.5-flash",
+    "no_cache": false,
+    "sweep": false,
+    "pool_size": 600,
+    "pool_seed": 0,
+    "subsample": null,
+    "out": "results",
+    "verbose": false,
+    "dataset_n": 1728
+  },
+  "final_pct": {
+    "agentic_mf": {
+      "mean": 71.215,
+      "std": 10.71246586925718
+    }
+  },
+  "hf_share_final": {
+    "agentic_mf": 0.9382867132867133
+  }
+}

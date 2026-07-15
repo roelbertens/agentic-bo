@@ -13,3 +13,5 @@ data/direct_arylation/
 # Persistent LLM decision cache (local resume state)
 .cache/
 .ruff_cache/
+# LLM replay cache for the multi-fidelity agent (local resume state)
+results/mf_llm_cache/
