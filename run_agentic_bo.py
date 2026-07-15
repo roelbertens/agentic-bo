@@ -120,7 +120,7 @@ def main() -> None:
                         "(e.g. gemini-2.5-pro) to test whether a better reasoner at the decision "
                         "step, with a cheap worker, beats the single-call agent")
     p.add_argument("--methods", nargs="+", default=ALL_METHODS, choices=METHOD_CHOICES)
-    p.add_argument("--out", default="results", help="output directory")
+    p.add_argument("--out", default="results/agentic_bo", help="output directory")
     p.add_argument("--no-cache", action="store_true",
                    help="disable the persistent decision cache "
                         "(LLM agents resume for free by default)")

@@ -91,7 +91,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--anonymize", action="store_true",
                    help="withhold reagent names (name ablation)")
-    p.add_argument("--out", default="results")
+    p.add_argument("--out", default="results/agentic_bo")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args()
 

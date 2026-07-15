@@ -127,7 +127,7 @@ discrete 1728-grid) and their qLogEI vs the local-penalization batch here, so co
 *patterns*, not decimals. (The synthetic MOF objective, for its part, is physically
 motivated but not real data.)
 
-Outputs land in `results/`: `convergence_<dataset>_<agent>.png` and a `summary_*.json`.
+Outputs land in `results/agentic_bo/`: `convergence_<dataset>_<agent>.png` and a `summary_*.json`.
 Run the tests with `uv run pytest -q`.
 
 ## Headline result — direct arylation (hard task), Reasoning-BO protocol
@@ -136,7 +136,7 @@ Gemini 2.5 Flash agent, paper protocol (n_init 3, batch 3, 30 experiments, 10 se
 `classic_bo` on a fair local-penalization batch. **IMP@k** = per-round proposal quality
 (matches Reasoning-BO); `final` = best-so-far as % of the pool optimum:
 
-![convergence](../results/convergence_arylation_gemini.png)
+![convergence](../results/agentic_bo/convergence_arylation_gemini.png)
 
 | method | IMP@1 | IMP@3 | IMP@5 | final |
 | --- | --- | --- | --- | --- |
@@ -177,13 +177,13 @@ free-text rationale that could be confabulated. The repo ships three tools to at
 own headline claim:
 
 **Rationale audit** *(no API calls)* — every agentic run writes
-`results/decisions_<tag>.jsonl`: per decision the full shortlist with ground truth next to
+`results/agentic_bo/decisions_<tag>.jsonl`: per decision the full shortlist with ground truth next to
 the agent's stated `strategy`/`rationale`. The audit checks the reasoning against reality —
 do "exploit" rounds out-yield "explore" rounds, do picks match the stated strategy, and
 when the agent overrules max-EI, does that pay off?
 
 ```bash
-uv run scripts/audit_decisions.py results/decisions_arylation_gemini.jsonl --show 5
+uv run scripts/audit_decisions.py results/agentic_bo/decisions_arylation_gemini.jsonl --show 5
 ```
 
 **Zero-shot leakage probe** — asks the model for its best pick with *zero measurements
@@ -260,7 +260,7 @@ export LANGFUSE_HOST=http://localhost:3000    # self-hosted; omit for Langfuse c
 uv run run_agentic_bo.py --dataset arylation --agent gemini --batch-size 3 --langfuse
 
 # Backfill: push an existing decision log — cached runs included, zero API calls:
-uv run scripts/push_to_langfuse.py results/decisions_arylation_gemini.jsonl
+uv run scripts/push_to_langfuse.py results/agentic_bo/decisions_arylation_gemini.jsonl
 ```
 
 To self-host: `git clone https://github.com/langfuse/langfuse && cd langfuse &&

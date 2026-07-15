@@ -2,7 +2,7 @@
 """Audit the agent's decisions against ground truth (see docs/AGENTIC_BO.md,
 the credibility-checks section).
 
-Every agentic run writes ``results/decisions_<tag>.jsonl``: one record per decision
+Every agentic run writes ``results/agentic_bo/decisions_<tag>.jsonl``: one record per decision
 with the full shortlist (descriptions, true yields, surrogate stats) next to the
 agent's stated ``strategy`` and ``rationale``. This script checks that the stated
 reasoning is connected to reality — after the fact, with zero API calls:
@@ -18,8 +18,8 @@ reasoning is connected to reality — after the fact, with zero API calls:
   recalls the dataset rather than reasoning.
 
 Usage:
-    uv run scripts/audit_decisions.py results/decisions_arylation_gemini.jsonl
-    uv run scripts/audit_decisions.py results/decisions_*.jsonl --show 5
+    uv run scripts/audit_decisions.py results/agentic_bo/decisions_arylation_gemini.jsonl
+    uv run scripts/audit_decisions.py results/agentic_bo/decisions_*.jsonl --show 5
 """
 from __future__ import annotations
 

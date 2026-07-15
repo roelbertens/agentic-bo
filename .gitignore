@@ -14,4 +14,4 @@ data/direct_arylation/
 .cache/
 .ruff_cache/
 # LLM replay cache for the multi-fidelity agent (local resume state)
-results/mf_llm_cache/
+mf_llm_cache/

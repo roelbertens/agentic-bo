@@ -31,8 +31,8 @@ findings of docs/AGENTIC_BO.md ("What this study taught").
   run are contaminated and must not be reported as agentic results. Rerun the
   missing decisions (the cache keeps the completed ones).
 - **Audit the reasoning.** Every agentic run writes
-  `results/decisions_<tag>.jsonl`. Run
-  `uv run scripts/audit_decisions.py results/decisions_<tag>.jsonl`
+  `results/agentic_bo/decisions_<tag>.jsonl`. Run
+  `uv run scripts/audit_decisions.py results/agentic_bo/decisions_<tag>.jsonl`
   and check that stated strategies match behaviour and that overrules of the
   surrogate do not consistently lose yield.
 - **Credibility checks for new headline claims:** a cold-start or
@@ -48,4 +48,4 @@ findings of docs/AGENTIC_BO.md ("What this study taught").
 - New findings go to the study docs (`docs/AGENTIC_BO.md` / `docs/RL_DESIGN.md`) in the
   same honest register as the existing sections: what we expected, what we saw, what would falsify it.
 - README tables only change from clean (zero-fallback), ≥10-seed runs whose
-  summary JSON is committed in `results/`.
+  summary JSON is committed in the study's `results/` folder.

@@ -122,7 +122,7 @@ model, or too little state.
 Pairwise reward, no noise. Every method is scored on the same verifier and plotted
 against episodes (verifier calls) consumed.
 
-![idealised](../results/rl_design_learning_curve.png)
+![idealised](../results/rl_design/rl_design_learning_curve.png)
 
 | method | % of optimum | reaches it at |
 | --- | --- | --- |
@@ -195,7 +195,7 @@ The two "planners" below are the *same* Bayesian planner as above, differing onl
 model order and state they use — the labels say which. Every curve runs until it is
 demonstrably flat, so a plateau below 100% is a real limit, not a budget artifact.
 
-![realistic](../results/rl_design_realism_curve.png)
+![realistic](../results/rl_design/rl_design_realism_curve.png)
 
 | method | model | state | % of optimum | reaches it at |
 | --- | --- | --- | --- | --- |
@@ -325,7 +325,7 @@ uv run run_rl_design.py --realism --triplet-strength 1.5 --obs-noise 1.0   # har
 uv run pytest tests/rl_design/ -q
 ```
 
-Outputs land in `results/`: `rl_design_learning_curve.png` (idealised) or
+Outputs land in `results/rl_design/`: `rl_design_learning_curve.png` (idealised) or
 `rl_design_realism_curve.png` (realistic), plus a `*_summary.json`. Everything is offline
 and deterministic per seed (seed 0 traps the open-loop policy in a local optimum, so the
 runner defaults to seed 1; the exact reference values are seed-independent).

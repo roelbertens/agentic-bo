@@ -44,7 +44,10 @@ in cost units. The baselines ignore the simulator (classic BO), trust it blindly
 [PydanticAI](https://ai.pydantic.dev) agent that spends the budget through typed tools and
 must infer from its own simulate-vs-measure pairs whether the simulator can be trusted.
 Only measured values count as results; the fidelity mix over time is plotted, not just the
-outcome. The study doubles as this repo's most complete agentic setup: a typed tool loop
+outcome. The finding is that **stating the inference is not the same as acting on it**: the
+agent reads the simulator's reliability correctly in its rationales, yet spends a nearly
+fixed fidelity mix regardless, and loses to a five-line heuristic applying the same
+evidence mechanically. The study doubles as this repo's most complete agentic setup: a typed tool loop
 with validation as retries, structured round decisions, fallback handling, a replay cache,
 decision-log audits, and a deterministic stand-in model that lets CI exercise the real loop.
 
@@ -67,7 +70,7 @@ uv run pytest -q                          # the test suite (offline)
 ```
 
 Full command references live in the docs above. Outputs (plots + summary JSON) land in
-`results/`; the reaction datasets are fetched by `uv run scripts/get_data.py`.
+`results/<study>/`; the reaction datasets are fetched by `uv run scripts/get_data.py`.
 
 ## Layout
 

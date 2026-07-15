@@ -1,6 +1,6 @@
 """Backfill an existing decision log into Langfuse — no API calls, no re-run.
 
-Every agentic run writes ``results/decisions_<tag>.jsonl``. This script replays
+Every agentic run writes ``results/agentic_bo/decisions_<tag>.jsonl``. This script replays
 such a log into Langfuse as one session (= the tag), one trace per policy x seed
 campaign, one span per decision round, with the audit scores attached
 (pick_percentile, follows_max_ei, overrule_gain_y, batch_best_y, fallback,
@@ -10,8 +10,8 @@ Usage:
     uv sync --extra eval
     export LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=...
     export LANGFUSE_HOST=http://localhost:3000   # self-hosted; omit for cloud
-    uv run scripts/push_to_langfuse.py results/decisions_arylation_gemini.jsonl
-    uv run scripts/push_to_langfuse.py results/decisions_*.jsonl
+    uv run scripts/push_to_langfuse.py results/agentic_bo/decisions_arylation_gemini.jsonl
+    uv run scripts/push_to_langfuse.py results/agentic_bo/decisions_*.jsonl
 """
 from __future__ import annotations
 

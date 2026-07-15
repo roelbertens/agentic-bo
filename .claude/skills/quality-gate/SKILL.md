@@ -51,9 +51,10 @@ are pinned by `tests/multi_fidelity/test_mf_agent.py::test_prompt_format_is_stab
   logs, or committed results.
 - **No data or cache:** `data/` and `.cache/` stay untracked (datasets are
   downloaded, not redistributed — that is a licensing statement in the README).
-- **Results naming:** files in `results/` follow
-  `<kind>_<dataset>[_persub][_anon][_permuted]_<agent>.<ext>` so runs never
-  silently overwrite each other.
+- **Results naming:** results live in a per-study folder
+  (`results/agentic_bo/`, `results/rl_design/`, `results/multi_fidelity/`) and
+  follow `<kind>_<dataset>[_persub][_anon][_permuted]_<agent>.<ext>` so runs
+  never silently overwrite each other.
 
 ## 5. Docs stay in sync
 

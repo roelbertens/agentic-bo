@@ -198,7 +198,7 @@ def main() -> None:
     p.add_argument("--bo-replicates", type=int, default=20)
     p.add_argument("--seed", type=int, default=1,
                    help="seed (0 traps the open-loop policy in a local optimum; 1 is typical)")
-    p.add_argument("--out", default="results")
+    p.add_argument("--out", default="results/rl_design")
     args = p.parse_args()
 
     task = DesignTask.default(

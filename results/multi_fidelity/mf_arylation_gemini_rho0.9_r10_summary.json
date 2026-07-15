@@ -6,28 +6,29 @@
     "cost_hf": 10.0,
     "cost_budget": 200.0,
     "n_init": 3,
-    "seeds": 4,
+    "seeds": 8,
     "methods": [
       "agentic_mf"
     ],
     "agent": "gemini",
     "model": "gemini-2.5-flash",
+    "request_limit": 24,
     "no_cache": false,
     "sweep": false,
     "pool_size": 600,
     "pool_seed": 0,
     "subsample": null,
-    "out": "results",
+    "out": "results/multi_fidelity",
     "verbose": false,
     "dataset_n": 1728
   },
   "final_pct": {
     "agentic_mf": {
-      "mean": 74.1075,
-      "std": 28.319893515866195
+      "mean": 81.92,
+      "std": 19.88292986458485
     }
   },
   "hf_share_final": {
-    "agentic_mf": 0.889618130130464
+    "agentic_mf": 0.9307717163769819
   }
 }
