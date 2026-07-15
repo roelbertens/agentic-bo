@@ -100,7 +100,7 @@ uv run run_multi_fidelity.py --dataset arylation --agent gemini --seeds 3 --verb
 
 Single-config runs produce a two-panel plot (convergence per unit cost;
 fidelity mix over time), a summary JSON, and — for the agent — a decision log
-(`results/decisions_*.jsonl`) with per-round spend, picks, values, request and
+(`results/multi_fidelity/decisions_*.jsonl`) with per-round spend, picks, values, request and
 retry counts, and rationales. `scripts/audit_mf_decisions.py` reports on a log
 without API calls: the fidelity mix early vs late, the screen-confirm gain,
 the simulator error the agent itself observed, and whether campaigns ended
@@ -151,7 +151,8 @@ Four readings:
    stays above `two_stage` at low ρ.
 4. **The adaptive methods sit between the extremes offline.** Neither `mf_bo`
    nor the heuristic agent dominates both regimes; the live-agent section
-   below reports what an LLM's inferred trust adds.
+   below reports what an LLM's inferred trust adds — on this task, less than
+   the heuristic's mechanical rule.
 
 Seed count matters here: at 4 seeds the ρ-dependence of `two_stage` disappears
 into per-seed noise (the final value of a 5-measurement campaign has a spread
@@ -165,32 +166,64 @@ test.
 
 ## The live agent (Gemini 2.5 Flash)
 
-Two cells of the arylation sweep, ratio 10, 4 seeds, all calls cached:
+The full sweep with an LLM in the loop, 8 seeds per cell, all calls cached
+(`uv run run_multi_fidelity.py --dataset arylation --sweep --seeds 8
+--methods agentic_mf --agent gemini`). Final best measurement, % of the pool
+optimum, next to the offline methods from the table above:
 
-| final, % of optimum | ρ=0.9 | ρ=0.3 |
-|---|---|---|
-| `two_stage` (16 seeds) | 90.8 | 88.3 |
-| `agentic_mf`, heuristic (16 seeds) | 82.4 | 74.5 |
-| `agentic_mf`, Gemini (4 seeds) | 74.1 ± 28.3 | 71.2 ± 10.7 |
+| | ρ=0.9 | | | ρ=0.6 | | | ρ=0.3 | | |
+|---|---|---|---|---|---|---|---|---|---|
+| **cost ratio** | 5 | 10 | 20 | 5 | 10 | 20 | 5 | 10 | 20 |
+| `two_stage` (16 seeds) | 92.3 | 90.8 | 88.7 | 91.9 | 89.9 | 86.7 | 90.2 | 88.3 | 81.4 |
+| `mf_bo` (16 seeds) | 92.7 | 82.9 | 67.7 | 92.2 | 78.9 | 62.4 | 87.0 | 80.8 | 61.5 |
+| `agentic_mf`, heuristic (16 seeds) | 93.2 | 82.4 | 58.1 | 96.2 | 84.3 | 67.5 | 90.3 | 74.5 | 58.6 |
+| `agentic_mf`, Gemini (8 seeds) | 91.1 | 81.9 | 56.8 | 83.5 | 66.8 | 58.4 | 81.4 | 69.2 | 50.1 |
 
-The mechanism the study asks about is present, and the decision-log audit
-makes it measurable. Between ρ=0.9 and ρ=0.3 the agent shifts its behaviour in
-the right direction on every axis: 65% vs 34% of its measurements are
-simulated first, the simulator error it observed is 11.4 vs 22.8, and
-confirmed picks out-yield direct picks only where the simulator is good
-(58.6 vs 41.5 at ρ=0.9; 33.5 vs 37.0 at ρ=0.3). The rationales state the
-inference explicitly — at ρ=0.3 the agent calls the simulator unreliable and
-switches to direct measurement.
+**The LLM agent loses to every fixed strategy**, in every cell, and to the
+deterministic heuristic in seven of nine. It tracks `random_hf` (90.3 / 81.8 /
+56.0 by cost ratio) rather than the multi-fidelity methods: the budget is
+spent, but not on the right fidelity at the right time.
 
-The outcome does not beat the fixed strategies. Two behaviours explain most of
-the gap. The agent runs one or two very long rounds instead of many small ones
-(mean 8.8 requests per round at ρ=0.9; one round hit the request limit and was
-logged as a fallback), and it stops voluntarily with budget left in 3 of 4
-campaigns at ρ=0.9 — sometimes on a reasoned but premature "EI is low"
-argument, which the ±28.3 spread reflects. Inferring trust works; spending the
-budget well does not follow from it, and 4 seeds cannot rank the agent against
-the baselines. A conclusion either way needs more seeds, a stricter stop
-criterion in the prompt, and a higher request limit.
+The decision-log audit locates the failure precisely. Loop mechanics are
+healthy — across all nine cells there are **zero fallback rounds, zero
+premature stops** (every campaign runs until the budget cannot buy another
+measurement), 4–5 requests per round, and ~4 rounds per campaign. The problem
+is that **the fidelity mix does not respond to ρ**: the agent runs 10–20
+simulations per campaign and spends 86–94% of its budget on measurements at
+*every* simulator quality. The evidence is in front of it — the simulator
+error it observed is 9.4 at ρ=0.9, 18.0 at ρ=0.6, 23.8 at ρ=0.3, and its
+rationales name the simulator unreliable at low ρ — but the spend barely
+moves. Screening only pays where the simulator is good (measurements it
+simulated first average 53.2 vs 41.3 for direct ones at ρ=0.9; 36.7 vs 44.6 at
+ρ=0.6), so a fixed mix is wrong at both ends: too little screening at ρ=0.9,
+too much at ρ=0.3.
+
+Part of that is a **tool-design problem, not a reasoning problem**. The winning
+behaviour on this task is a wide cheap screen — `two_stage` simulates 40–100
+candidates in one step — but the agent's only way to screen is
+`simulate(candidate_ids)` with the ids written out one by one, and the ids
+have to come from `shortlist`, which returns a top-k of about eight. Screening
+broadly therefore costs the agent long argument lists and several rounds,
+while measuring is a one-id call. The tools make the strategy that wins
+expensive to express, and the observed mix of ~15 simulations per campaign is
+about what a top-k-sized shortlist affords. The next version of the agent needs
+screening primitives at the same granularity as its decisions: something like
+`simulate_top(n)` or `simulate_random(n)` over the whole pool, plus a
+`shortlist` whose size the agent chooses.
+
+An earlier 4-seed pair of cells, run before the prompt was tightened, appeared
+to show the mix tracking ρ (65% vs 34% of measurements simulated first).
+That signal did not reproduce here at 8 seeds. Two explanations are open: it
+was noise at 4 seeds, or the stricter "spend the whole budget" instruction
+traded trust-adaptation for spend. Distinguishing them needs the old prompt
+re-run at 8 seeds; the current numbers do not settle it.
+
+What the study can say: inferring simulator reliability from evidence is
+something the agent demonstrably does in its reasoning, and acting on that
+inference in its spending is something it does not — with the caveat that its
+tools currently price the adaptive strategy out. On this task a five-line
+heuristic that mechanically compares simulator error against the spread of the
+measurements converts the same evidence into better decisions.
 
 ## What to trust
 
@@ -203,9 +236,18 @@ because the replay cache is keyed on them.
 
 ## Open threads
 
-* The full Gemini sweep at more seeds, with a stricter stop criterion and a
-  higher per-round request limit (the two behaviours the first live cells
-  flagged).
+* **Give the agent screening tools that match the strategy.** Its spend cannot
+  track ρ while a broad screen has to be spelled out id by id from an
+  eight-item shortlist. Add pool-wide primitives (`simulate_top(n)`,
+  `simulate_random(n)`, an agent-chosen shortlist size) and rerun the sweep:
+  this is the first thing to fix, because it is the one that currently prices
+  the adaptive strategy out.
+* Then separate the two remaining explanations for the flat mix: the prompt
+  rewards spending over adapting (test by rerunning the pre-tightening prompt
+  at 8 seeds), or the model states the inference without acting on it — which
+  is what remains if better tools do not change the mix, and matches study 1's
+  finding that the agent followed max-EI 93% of the time whatever its rationale
+  said.
 * Batched measuring for `mf_bo` and the agent (local penalization, as study 1).
 * Cross-campaign memory: a later campaign on a *new* pool that shares the same
   simulator starts with the trust inferred earlier, instead of re-learning it.

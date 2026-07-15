@@ -196,6 +196,7 @@ def test_prompt_format_is_stable():
     accidental edit cannot silently turn cache hits into paid API calls."""
     assert INSTRUCTIONS.startswith("You run a budgeted experimental campaign")
     assert "reliability is UNKNOWN" in INSTRUCTIONS
+    assert "Low expected improvement is not a reason to stop" in INSTRUCTIONS
     rendered = ROUND_PROMPT.format(round=2, spent=40.0, budget=200.0, remaining=160.0,
                                    cost_lf=1.0, cost_hf=10.0, best=61.25, memory="(none)")
     assert rendered == (
@@ -203,7 +204,8 @@ def test_prompt_format_is_stable():
         "Costs per candidate: simulate 1, measure 10.\n"
         "Best measured so far: 61.25.\n"
         "Notes from earlier rounds:\n(none)\n\n"
-        "Investigate with recall/shortlist/predict, then spend budget with simulate/measure. "
+        "Investigate with recall/shortlist/predict, then spend a modest slice of the budget "
+        "with simulate/measure and end the round — later rounds continue from your note. "
         "Finish with your rationale, a short note to your future self, and stop=true only "
-        "if further spending cannot improve the best measurement."
+        "if the remaining budget cannot buy another measurement."
     )

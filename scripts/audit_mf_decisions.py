@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit a multi-fidelity agent's decision log against its behaviour.
 
-Reads a ``results/decisions_mf_*.jsonl`` written by ``run_multi_fidelity.py``
+Reads a ``results/multi_fidelity/decisions_mf_*.jsonl`` written by ``run_multi_fidelity.py``
 (one record per agent round, per seed) and reports, without any API calls,
 whether the agent's stated reasoning matches what it actually did:
 
@@ -14,7 +14,8 @@ whether the agent's stated reasoning matches what it actually did:
 * loop health — fallback rounds, requests and retries per round, and whether
   stops were voluntary (budget left) or forced (budget dry).
 
-Usage: uv run scripts/audit_mf_decisions.py results/decisions_mf_<tag>.jsonl [--show N]
+Usage:
+    uv run scripts/audit_mf_decisions.py results/multi_fidelity/decisions_mf_<tag>.jsonl
 """
 from __future__ import annotations
 
@@ -119,7 +120,7 @@ def audit(per_seed: dict[int, list[dict]], show: int) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("log", help="results/decisions_mf_<tag>.jsonl")
+    p.add_argument("log", help="results/multi_fidelity/decisions_mf_<tag>.jsonl")
     p.add_argument("--show", type=int, default=0, help="print the first N rationales")
     args = p.parse_args()
     audit(load(args.log), args.show)

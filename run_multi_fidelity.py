@@ -83,7 +83,8 @@ def run_config(dataset, args, rho: float, cost_hf: float, tag: str,
             model = build_agent_model(args, tag)
 
             def make(model=model):
-                policy = AgenticMF(model, verbose=args.verbose)
+                policy = AgenticMF(model, request_limit=args.request_limit,
+                                   verbose=args.verbose)
                 agent_logs.append(policy)
                 return policy
         results[name] = run_method(problem, make, name, seeds, args.cost_budget,
@@ -141,6 +142,8 @@ def main() -> None:
     p.add_argument("--agent", choices=["heuristic", "gemini"], default="heuristic",
                    help="what drives agentic_mf (default: heuristic, offline)")
     p.add_argument("--model", default="gemini-2.5-flash")
+    p.add_argument("--request-limit", type=int, default=24,
+                   help="max LLM requests per agent round (default 24)")
     p.add_argument("--no-cache", action="store_true", help="disable the LLM replay cache")
     p.add_argument("--sweep", action="store_true",
                    help="grid over rho x cost ratio instead of a single run; prints the "
@@ -148,7 +151,7 @@ def main() -> None:
     p.add_argument("--pool-size", type=int, default=600)
     p.add_argument("--pool-seed", type=int, default=0)
     p.add_argument("--subsample", type=int, default=None)
-    p.add_argument("--out", default="results")
+    p.add_argument("--out", default="results/multi_fidelity")
     p.add_argument("--verbose", action="store_true", help="print each agent round's rationale")
     args = p.parse_args()
 

@@ -39,8 +39,10 @@ INSTRUCTIONS = (
     "UNKNOWN: it may track the truth closely or be badly misleading. Infer how much to "
     "trust it from candidates where you have both a simulation and a measurement, and "
     "adapt your mix: a trustworthy simulator lets you screen broadly before confirming, "
-    "a misleading one should be abandoned for direct measurement. Spend the whole budget "
-    "unless further spending cannot improve the best measurement."
+    "a misleading one should be abandoned for direct measurement. Spend the whole budget: "
+    "unspent budget is wasted, and stop=true is only justified when the remaining budget "
+    "cannot buy another measurement or nothing unmeasured is left. Low expected "
+    "improvement is not a reason to stop — it is a reason to explore differently."
 )
 
 ROUND_PROMPT = (
@@ -48,9 +50,10 @@ ROUND_PROMPT = (
     "Costs per candidate: simulate {cost_lf:g}, measure {cost_hf:g}.\n"
     "Best measured so far: {best:.2f}.\n"
     "Notes from earlier rounds:\n{memory}\n\n"
-    "Investigate with recall/shortlist/predict, then spend budget with simulate/measure. "
+    "Investigate with recall/shortlist/predict, then spend a modest slice of the budget "
+    "with simulate/measure and end the round — later rounds continue from your note. "
     "Finish with your rationale, a short note to your future self, and stop=true only "
-    "if further spending cannot improve the best measurement."
+    "if the remaining budget cannot buy another measurement."
 )
 
 
@@ -190,7 +193,7 @@ class AgenticMF:
 
     name = "agentic_mf"
 
-    def __init__(self, model, shortlist_k: int = 8, request_limit: int = 16,
+    def __init__(self, model, shortlist_k: int = 8, request_limit: int = 24,
                  verbose: bool = False):
         self.model = model
         self.shortlist_k = shortlist_k

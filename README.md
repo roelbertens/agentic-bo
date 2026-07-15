@@ -47,7 +47,9 @@ Only measured values count as results; the fidelity mix over time is plotted, no
 outcome. The finding is that **stating the inference is not the same as acting on it**: the
 agent reads the simulator's reliability correctly in its rationales, yet spends a nearly
 fixed fidelity mix regardless, and loses to a five-line heuristic applying the same
-evidence mechanically. The study doubles as this repo's most complete agentic setup: a typed tool loop
+evidence mechanically. Part of the cause is tool design — a broad cheap screen has to be
+spelled out candidate by candidate, so the strategy that wins is the one the tools make
+expensive. The study doubles as this repo's most complete agentic setup: a typed tool loop
 with validation as retries, structured round decisions, fallback handling, a replay cache,
 decision-log audits, and a deterministic stand-in model that lets CI exercise the real loop.
 
